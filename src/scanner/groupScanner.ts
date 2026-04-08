@@ -8,6 +8,7 @@ export interface GroupScanResult {
   diagnostics: {
     groupKey: string;
     title: string;
+    category: 'champion-market' | 'timeframe-market';
     memberCount: number;
     usableMembers: number;
     failedMembers: number;
@@ -16,6 +17,7 @@ export interface GroupScanResult {
     askDistanceToOne: number;
     bidDistanceToOne: number;
     failures: Array<{ marketId: string; question: string; reason: string }>;
+    orderingViolations?: Array<{ earlierMarketId: string; laterMarketId: string; earlierAsk: number; laterAsk: number }>;
   } | null;
 }
 
@@ -24,6 +26,7 @@ export async function scanGroup(group: MarketGroup, ctx: AppContext): Promise<Gr
   let summedYesBid = 0;
   let usableMembers = 0;
   const failures: Array<{ marketId: string; question: string; reason: string }> = [];
+  const usable: Array<{ marketId: string; question: string; ask: number; bid: number; sortKey?: number }> = [];
 
   for (const member of group.members) {
     try {
@@ -40,14 +43,33 @@ export async function scanGroup(group: MarketGroup, ctx: AppContext): Promise<Gr
       summedYesAsk += bestAsk;
       summedYesBid += bestBid;
       usableMembers += 1;
+      usable.push({ marketId: member.marketId, question: member.question, ask: bestAsk, bid: bestBid, sortKey: member.sortKey });
     } catch {
       failures.push({ marketId: member.marketId, question: member.question, reason: 'orderbook fetch failed' });
+    }
+  }
+
+  const orderingViolations: Array<{ earlierMarketId: string; laterMarketId: string; earlierAsk: number; laterAsk: number }> = [];
+  if (group.category === 'timeframe-market') {
+    const sorted = [...usable].sort((a, b) => (a.sortKey ?? 0) - (b.sortKey ?? 0));
+    for (let i = 0; i < sorted.length - 1; i += 1) {
+      const earlier = sorted[i];
+      const later = sorted[i + 1];
+      if (earlier && later && earlier.ask > later.ask) {
+        orderingViolations.push({
+          earlierMarketId: earlier.marketId,
+          laterMarketId: later.marketId,
+          earlierAsk: earlier.ask,
+          laterAsk: later.ask
+        });
+      }
     }
   }
 
   const diagnostics = {
     groupKey: group.groupKey,
     title: group.title,
+    category: group.category,
     memberCount: group.members.length,
     usableMembers,
     failedMembers: failures.length,
@@ -55,14 +77,32 @@ export async function scanGroup(group: MarketGroup, ctx: AppContext): Promise<Gr
     summedYesBid,
     askDistanceToOne: summedYesAsk - 1,
     bidDistanceToOne: 1 - summedYesBid,
-    failures
+    failures,
+    orderingViolations
   };
 
   if (usableMembers < 2) {
     return { opportunity: null, diagnostics };
   }
 
-  if (summedYesAsk <= 1 || summedYesBid >= 1) {
+  if (group.category === 'timeframe-market' && orderingViolations.length > 0) {
+    return {
+      diagnostics,
+      opportunity: {
+        groupKey: group.groupKey,
+        category: group.category,
+        title: group.title,
+        memberCount: group.members.length,
+        summedYesAsk,
+        summedYesBid,
+        edgeToOne: orderingViolations[0].earlierAsk - orderingViolations[0].laterAsk,
+        detectedAt: Date.now(),
+        note: `Time ordering violation count=${orderingViolations.length}`
+      }
+    };
+  }
+
+  if (group.category === 'champion-market' && (summedYesAsk <= 1 || summedYesBid >= 1)) {
     return {
       diagnostics,
       opportunity: {

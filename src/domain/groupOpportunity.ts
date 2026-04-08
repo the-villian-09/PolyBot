@@ -1,6 +1,6 @@
 export interface GroupOpportunity {
   groupKey: string;
-  category: 'champion-market';
+  category: 'champion-market' | 'timeframe-market';
   title: string;
   memberCount: number;
   summedYesAsk: number;

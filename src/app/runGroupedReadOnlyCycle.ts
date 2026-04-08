@@ -19,6 +19,7 @@ export async function runGroupedReadOnlyCycle(ctx: AppContext): Promise<void> {
       ctx.logger.info({
         groupKey: result.diagnostics.groupKey,
         title: result.diagnostics.title,
+        category: result.diagnostics.category,
         memberCount: result.diagnostics.memberCount,
         usableMembers: result.diagnostics.usableMembers,
         failedMembers: result.diagnostics.failedMembers,
@@ -26,6 +27,7 @@ export async function runGroupedReadOnlyCycle(ctx: AppContext): Promise<void> {
         summedYesBid: result.diagnostics.summedYesBid,
         askDistanceToOne: result.diagnostics.askDistanceToOne,
         bidDistanceToOne: result.diagnostics.bidDistanceToOne,
+        orderingViolationCount: result.diagnostics.orderingViolations?.length ?? 0,
         failures: result.diagnostics.failures.slice(0, 5)
       }, 'Grouped market diagnostics');
     }
@@ -36,6 +38,7 @@ export async function runGroupedReadOnlyCycle(ctx: AppContext): Promise<void> {
     ctx.logger.info({
       groupKey: result.opportunity.groupKey,
       title: result.opportunity.title,
+      category: result.opportunity.category,
       memberCount: result.opportunity.memberCount,
       summedYesAsk: result.opportunity.summedYesAsk,
       summedYesBid: result.opportunity.summedYesBid,

@@ -5,11 +5,12 @@ export interface MarketGroupMember {
   noTokenId: string;
   liquidityUsd?: number;
   volume24h?: number;
+  sortKey?: number;
 }
 
 export interface MarketGroup {
   groupKey: string;
-  category: 'champion-market';
+  category: 'champion-market' | 'timeframe-market';
   title: string;
   members: MarketGroupMember[];
 }

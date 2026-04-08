@@ -16,7 +16,7 @@ The repository currently includes:
 - dry-run scan loop
 - file-based JSONL persistence for detected and missed opportunities
 - skip-reason logging for dry-run diagnostics
-- grouped market scaffolding for champion-market scans
+- grouped market scaffolding for champion-market and timeframe-market scans
 - Polymarket integration checklist docs
 - revised strategy spec
 
