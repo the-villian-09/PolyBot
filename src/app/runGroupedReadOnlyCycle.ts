@@ -13,18 +13,31 @@ export async function runGroupedReadOnlyCycle(ctx: AppContext): Promise<void> {
   let detected = 0;
 
   for (const group of groups) {
-    const opportunity = await scanGroup(group, ctx);
-    if (!opportunity) continue;
+    const result = await scanGroup(group, ctx);
+
+    if (result.diagnostics) {
+      ctx.logger.info({
+        groupKey: result.diagnostics.groupKey,
+        title: result.diagnostics.title,
+        memberCount: result.diagnostics.memberCount,
+        summedYesAsk: result.diagnostics.summedYesAsk,
+        summedYesBid: result.diagnostics.summedYesBid,
+        askDistanceToOne: result.diagnostics.askDistanceToOne,
+        bidDistanceToOne: result.diagnostics.bidDistanceToOne
+      }, 'Grouped market diagnostics');
+    }
+
+    if (!result.opportunity) continue;
 
     detected += 1;
     ctx.logger.info({
-      groupKey: opportunity.groupKey,
-      title: opportunity.title,
-      memberCount: opportunity.memberCount,
-      summedYesAsk: opportunity.summedYesAsk,
-      summedYesBid: opportunity.summedYesBid,
-      edgeToOne: opportunity.edgeToOne,
-      note: opportunity.note
+      groupKey: result.opportunity.groupKey,
+      title: result.opportunity.title,
+      memberCount: result.opportunity.memberCount,
+      summedYesAsk: result.opportunity.summedYesAsk,
+      summedYesBid: result.opportunity.summedYesBid,
+      edgeToOne: result.opportunity.edgeToOne,
+      note: result.opportunity.note
     }, 'Grouped opportunity detected');
   }
 
