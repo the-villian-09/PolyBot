@@ -11,12 +11,28 @@ export interface RawPolymarketMarket {
   question?: string;
   active?: boolean;
   closed?: boolean;
+  archived?: boolean;
+  enable_order_book?: boolean;
   updatedAt?: string | number;
   updated_at?: string | number;
   liquidity?: number;
   liquidity_num?: number;
   tokens?: RawPolymarketOutcome[];
   outcomes?: { tokenId: string; outcome: string }[];
+}
+
+export interface RawGammaMarket {
+  id: string;
+  question?: string;
+  active?: boolean;
+  closed?: boolean;
+  archived?: boolean;
+  enableOrderBook?: boolean;
+  updatedAt?: string | number;
+  liquidity?: string | number;
+  liquidityNum?: number;
+  clobTokenIds?: string;
+  outcomes?: string;
 }
 
 export interface RawPolymarketOrderBook {

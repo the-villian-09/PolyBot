@@ -1,4 +1,4 @@
-import type { RawPolymarketMarket, RawPolymarketOrderBook } from './types';
+import type { RawGammaMarket, RawPolymarketMarket, RawPolymarketOrderBook } from './types';
 
 interface MarketsResponse {
   data?: RawPolymarketMarket[];
@@ -14,10 +14,13 @@ interface BookResponse {
 }
 
 export class PolymarketRestClient {
-  constructor(private readonly baseUrl: string) {}
+  constructor(
+    private readonly clobBaseUrl: string,
+    private readonly gammaBaseUrl: string
+  ) {}
 
   async getMarkets(): Promise<RawPolymarketMarket[]> {
-    const response = await fetch(`${this.baseUrl}/markets`, {
+    const response = await fetch(`${this.clobBaseUrl}/markets`, {
       headers: {
         Accept: 'application/json',
         'User-Agent': 'PolyBot/0.1.0'
@@ -33,8 +36,24 @@ export class PolymarketRestClient {
     return payload.data ?? [];
   }
 
+  async getActiveGammaMarkets(limit = 200): Promise<RawGammaMarket[]> {
+    const url = `${this.gammaBaseUrl}/markets?active=true&closed=false&archived=false&enableOrderBook=true&limit=${limit}`;
+    const response = await fetch(url, {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'PolyBot/0.1.0'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`getActiveGammaMarkets failed with status ${response.status}`);
+    }
+
+    return (await response.json()) as RawGammaMarket[];
+  }
+
   async getOrderBook(tokenId: string): Promise<RawPolymarketOrderBook> {
-    const response = await fetch(`${this.baseUrl}/book?token_id=${encodeURIComponent(tokenId)}`, {
+    const response = await fetch(`${this.clobBaseUrl}/book?token_id=${encodeURIComponent(tokenId)}`, {
       headers: {
         Accept: 'application/json',
         'User-Agent': 'PolyBot/0.1.0'

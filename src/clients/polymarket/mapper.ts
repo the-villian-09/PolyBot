@@ -1,6 +1,33 @@
 import type { Market } from '../../domain/market';
 import type { OrderBook } from '../../domain/orderbook';
-import type { RawPolymarketMarket, RawPolymarketOrderBook } from './types';
+import type { RawGammaMarket, RawPolymarketMarket, RawPolymarketOrderBook } from './types';
+
+function parseJsonArray(value?: string): string[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function mapGammaMarket(raw: RawGammaMarket): Market {
+  const tokenIds = parseJsonArray(raw.clobTokenIds);
+
+  return {
+    id: raw.id,
+    question: raw.question ?? 'Unknown market',
+    active: Boolean(raw.active),
+    closed: Boolean(raw.closed),
+    updatedAt: raw.updatedAt ? new Date(raw.updatedAt).getTime() : Date.now(),
+    liquidityUsd: raw.liquidityNum ?? Number(raw.liquidity ?? 0),
+    outcomes: tokenIds.slice(0, 2).map((tokenId, index) => ({
+      tokenId,
+      outcome: index === 0 ? 'YES' : 'NO'
+    }))
+  };
+}
 
 export function mapMarket(raw: RawPolymarketMarket): Market {
   const rawTokens = raw.tokens ?? [];
@@ -17,9 +44,9 @@ export function mapMarket(raw: RawPolymarketMarket): Market {
         : Date.now(),
     liquidityUsd: raw.liquidity ?? raw.liquidity_num,
     outcomes: raw.outcomes?.length
-      ? raw.outcomes.map((outcome) => ({
+      ? raw.outcomes.map((outcome, index) => ({
           tokenId: outcome.tokenId,
-          outcome: outcome.outcome?.toUpperCase() === 'NO' ? 'NO' : 'YES'
+          outcome: index === 0 ? 'YES' : 'NO'
         }))
       : rawTokens.map((token, index) => ({
           tokenId: token.tokenId ?? token.token_id ?? `unknown-${index}`,

@@ -21,7 +21,10 @@ export function bootstrap(): AppContext {
   const marketStore = new MarketStore();
   const orderBookStore = new OrderBookStore();
   const opportunitiesRepo = new OpportunitiesRepo();
-  const polymarketClient = new PolymarketRestClient(env.POLYMARKET_API_BASE_URL);
+  const polymarketClient = new PolymarketRestClient(
+    env.POLYMARKET_API_BASE_URL,
+    env.POLYMARKET_GAMMA_BASE_URL
+  );
 
   logger.info({ mode: env.APP_MODE }, 'PolyEdge Lite bootstrap complete');
 

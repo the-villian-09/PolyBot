@@ -1,4 +1,4 @@
-import { mapMarket, mapOrderBook } from '../clients/polymarket/mapper';
+import { mapGammaMarket, mapOrderBook } from '../clients/polymarket/mapper';
 import type { AppContext } from './bootstrap';
 import { scanOrderBook } from '../scanner/arbitrageScanner';
 import { validateOpportunity } from '../rules/validateOpportunity';
@@ -16,21 +16,21 @@ function mergeOutcomeBooks(marketId: string, yesBook: OrderBook, noBook: OrderBo
 }
 
 export async function runReadOnlyCycle(ctx: AppContext): Promise<void> {
-  const rawMarkets = await ctx.polymarketClient.getMarkets();
+  const rawMarkets = await ctx.polymarketClient.getActiveGammaMarkets();
   const markets = rawMarkets
-    .map(mapMarket)
+    .map(mapGammaMarket)
     .filter((market) => market.active && !market.closed && market.outcomes.length >= 2);
 
   ctx.marketStore.bulkUpsert(markets);
-  ctx.logger.info({ count: markets.length }, 'Fetched active markets');
+  ctx.logger.info({ tradableCandidates: markets.length }, 'Fetched tradable Gamma markets');
 
   let cycleDetected = 0;
   let cycleMissed = 0;
 
   for (const market of markets) {
     try {
-      const yesToken = market.outcomes.find((outcome) => outcome.outcome === 'YES') ?? market.outcomes[0];
-      const noToken = market.outcomes.find((outcome) => outcome.outcome === 'NO') ?? market.outcomes[1];
+      const yesToken = market.outcomes[0];
+      const noToken = market.outcomes[1];
 
       if (!yesToken || !noToken) {
         cycleMissed += 1;

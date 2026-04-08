@@ -7,6 +7,7 @@ export const envSchema = z.object({
   APP_MODE: z.enum(['dry-run', 'paper', 'live-small', 'live']).default('paper'),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   POLYMARKET_API_BASE_URL: z.string().min(1),
+  POLYMARKET_GAMMA_BASE_URL: z.string().min(1).default('https://gamma-api.polymarket.com'),
   POLYMARKET_WS_URL: z.string().optional().default(''),
   POLYGON_CHAIN_ID: z.coerce.number().default(137),
   POLYGON_RPC_URL: z.string().min(1),
