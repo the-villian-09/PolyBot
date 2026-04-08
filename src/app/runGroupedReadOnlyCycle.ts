@@ -20,10 +20,13 @@ export async function runGroupedReadOnlyCycle(ctx: AppContext): Promise<void> {
         groupKey: result.diagnostics.groupKey,
         title: result.diagnostics.title,
         memberCount: result.diagnostics.memberCount,
+        usableMembers: result.diagnostics.usableMembers,
+        failedMembers: result.diagnostics.failedMembers,
         summedYesAsk: result.diagnostics.summedYesAsk,
         summedYesBid: result.diagnostics.summedYesBid,
         askDistanceToOne: result.diagnostics.askDistanceToOne,
-        bidDistanceToOne: result.diagnostics.bidDistanceToOne
+        bidDistanceToOne: result.diagnostics.bidDistanceToOne,
+        failures: result.diagnostics.failures.slice(0, 5)
       }, 'Grouped market diagnostics');
     }
 

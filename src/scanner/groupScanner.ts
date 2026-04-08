@@ -9,40 +9,58 @@ export interface GroupScanResult {
     groupKey: string;
     title: string;
     memberCount: number;
+    usableMembers: number;
+    failedMembers: number;
     summedYesAsk: number;
     summedYesBid: number;
     askDistanceToOne: number;
     bidDistanceToOne: number;
+    failures: Array<{ marketId: string; question: string; reason: string }>;
   } | null;
 }
 
 export async function scanGroup(group: MarketGroup, ctx: AppContext): Promise<GroupScanResult> {
   let summedYesAsk = 0;
   let summedYesBid = 0;
+  let usableMembers = 0;
+  const failures: Array<{ marketId: string; question: string; reason: string }> = [];
 
   for (const member of group.members) {
-    const rawBook = await ctx.polymarketClient.getOrderBook(member.yesTokenId);
-    const book = mapOrderBook(rawBook);
-    const bestBid = book.yesBids[0]?.price;
-    const bestAsk = book.yesAsks[0]?.price;
+    try {
+      const rawBook = await ctx.polymarketClient.getOrderBook(member.yesTokenId);
+      const book = mapOrderBook(rawBook);
+      const bestBid = book.yesBids[0]?.price;
+      const bestAsk = book.yesAsks[0]?.price;
 
-    if (bestBid === undefined || bestAsk === undefined) {
-      return { opportunity: null, diagnostics: null };
+      if (bestBid === undefined || bestAsk === undefined) {
+        failures.push({ marketId: member.marketId, question: member.question, reason: 'missing yes best bid or ask' });
+        continue;
+      }
+
+      summedYesAsk += bestAsk;
+      summedYesBid += bestBid;
+      usableMembers += 1;
+    } catch {
+      failures.push({ marketId: member.marketId, question: member.question, reason: 'orderbook fetch failed' });
     }
-
-    summedYesAsk += bestAsk;
-    summedYesBid += bestBid;
   }
 
   const diagnostics = {
     groupKey: group.groupKey,
     title: group.title,
     memberCount: group.members.length,
+    usableMembers,
+    failedMembers: failures.length,
     summedYesAsk,
     summedYesBid,
     askDistanceToOne: summedYesAsk - 1,
-    bidDistanceToOne: 1 - summedYesBid
+    bidDistanceToOne: 1 - summedYesBid,
+    failures
   };
+
+  if (usableMembers < 2) {
+    return { opportunity: null, diagnostics };
+  }
 
   if (summedYesAsk <= 1 || summedYesBid >= 1) {
     return {
