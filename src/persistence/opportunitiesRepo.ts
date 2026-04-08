@@ -9,6 +9,7 @@ export class OpportunitiesRepo {
   private readonly missed: MissedOpportunity[] = [];
   private readonly grouped: GroupOpportunity[] = [];
   private readonly cryptoLadders: GroupOpportunity[] = [];
+  private readonly paperCryptoLadders: GroupOpportunity[] = [];
 
   constructor(private readonly baseDir: string = './data') {}
 
@@ -32,6 +33,11 @@ export class OpportunitiesRepo {
     }
   }
 
+  recordPaperCryptoLadder(opportunity: GroupOpportunity): void {
+    this.paperCryptoLadders.push(opportunity);
+    this.appendJsonl('opportunities.crypto-ladders.paper.jsonl', opportunity);
+  }
+
   listDetected(): Opportunity[] {
     return [...this.detected];
   }
@@ -46,6 +52,10 @@ export class OpportunitiesRepo {
 
   listCryptoLadders(): GroupOpportunity[] {
     return [...this.cryptoLadders];
+  }
+
+  listPaperCryptoLadders(): GroupOpportunity[] {
+    return [...this.paperCryptoLadders];
   }
 
   private appendJsonl(fileName: string, payload: unknown): void {

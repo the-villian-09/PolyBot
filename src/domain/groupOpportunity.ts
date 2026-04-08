@@ -9,6 +9,10 @@ export interface GroupOpportunity {
   severityScore?: number;
   feasible?: boolean;
   feasibilityReasons?: string[];
+  simulatedNetEdge?: number;
+  simulatedTradeSizeUsd?: number;
+  simulatedPnlUsd?: number;
+  simulationNotes?: string[];
   detectedAt: number;
   note: string;
 }
