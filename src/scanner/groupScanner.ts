@@ -3,22 +3,33 @@ import type { MarketGroup } from '../domain/marketGroup';
 import { mapOrderBook } from '../clients/polymarket/mapper';
 import type { AppContext } from '../app/bootstrap';
 
+export interface GroupDiagnostics {
+  groupKey: string;
+  title: string;
+  category: 'champion-market' | 'timeframe-market' | 'exclusive-outcome-market';
+  memberCount: number;
+  usableMembers: number;
+  failedMembers: number;
+  summedYesAsk: number;
+  summedYesBid: number;
+  askDistanceToOne: number;
+  bidDistanceToOne: number;
+  failures: Array<{ marketId: string; question: string; reason: string }>;
+  orderingViolations?: Array<{ earlierMarketId: string; laterMarketId: string; earlierAsk: number; laterAsk: number }>;
+  nearMissScore: number;
+}
+
 export interface GroupScanResult {
   opportunity: GroupOpportunity | null;
-  diagnostics: {
-    groupKey: string;
-    title: string;
-    category: 'champion-market' | 'timeframe-market' | 'exclusive-outcome-market';
-    memberCount: number;
-    usableMembers: number;
-    failedMembers: number;
-    summedYesAsk: number;
-    summedYesBid: number;
-    askDistanceToOne: number;
-    bidDistanceToOne: number;
-    failures: Array<{ marketId: string; question: string; reason: string }>;
-    orderingViolations?: Array<{ earlierMarketId: string; laterMarketId: string; earlierAsk: number; laterAsk: number }>;
-  } | null;
+  diagnostics: GroupDiagnostics | null;
+}
+
+function calculateNearMissScore(category: GroupDiagnostics['category'], askDistanceToOne: number, bidDistanceToOne: number, orderingViolationCount: number, failures: number): number {
+  if (category === 'timeframe-market') {
+    return orderingViolationCount > 0 ? 0 : 1000 + failures;
+  }
+
+  return Math.min(Math.abs(askDistanceToOne), Math.abs(bidDistanceToOne)) + failures * 0.1;
 }
 
 export async function scanGroup(group: MarketGroup, ctx: AppContext): Promise<GroupScanResult> {
@@ -66,7 +77,7 @@ export async function scanGroup(group: MarketGroup, ctx: AppContext): Promise<Gr
     }
   }
 
-  const diagnostics = {
+  const diagnostics: GroupDiagnostics = {
     groupKey: group.groupKey,
     title: group.title,
     category: group.category,
@@ -78,7 +89,8 @@ export async function scanGroup(group: MarketGroup, ctx: AppContext): Promise<Gr
     askDistanceToOne: summedYesAsk - 1,
     bidDistanceToOne: 1 - summedYesBid,
     failures,
-    orderingViolations
+    orderingViolations,
+    nearMissScore: calculateNearMissScore(group.category, summedYesAsk - 1, 1 - summedYesBid, orderingViolations.length, failures.length)
   };
 
   if (usableMembers < 2) {

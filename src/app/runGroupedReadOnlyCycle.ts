@@ -1,7 +1,7 @@
 import type { AppContext } from './bootstrap';
 import { mapGammaMarket } from '../clients/polymarket/mapper';
 import { groupMarkets } from '../grouping/groupMarkets';
-import { scanGroup } from '../scanner/groupScanner';
+import { scanGroup, type GroupDiagnostics } from '../scanner/groupScanner';
 
 export async function runGroupedReadOnlyCycle(ctx: AppContext): Promise<void> {
   const rawMarkets = await ctx.polymarketClient.getActiveGammaMarkets();
@@ -11,11 +11,13 @@ export async function runGroupedReadOnlyCycle(ctx: AppContext): Promise<void> {
   ctx.logger.info({ totalMarkets: markets.length, groups: groups.length }, 'Grouped market scan initialized');
 
   let detected = 0;
+  const diagnosticsList: GroupDiagnostics[] = [];
 
   for (const group of groups) {
     const result = await scanGroup(group, ctx);
 
     if (result.diagnostics) {
+      diagnosticsList.push(result.diagnostics);
       ctx.logger.info({
         groupKey: result.diagnostics.groupKey,
         title: result.diagnostics.title,
@@ -28,6 +30,7 @@ export async function runGroupedReadOnlyCycle(ctx: AppContext): Promise<void> {
         askDistanceToOne: result.diagnostics.askDistanceToOne,
         bidDistanceToOne: result.diagnostics.bidDistanceToOne,
         orderingViolationCount: result.diagnostics.orderingViolations?.length ?? 0,
+        nearMissScore: result.diagnostics.nearMissScore,
         failures: result.diagnostics.failures.slice(0, 5)
       }, 'Grouped market diagnostics');
     }
@@ -47,5 +50,20 @@ export async function runGroupedReadOnlyCycle(ctx: AppContext): Promise<void> {
     }, 'Grouped opportunity detected');
   }
 
-  ctx.logger.info({ groups: groups.length, detected }, 'Grouped market scan complete');
+  const topNearMisses = diagnosticsList
+    .sort((a, b) => a.nearMissScore - b.nearMissScore)
+    .slice(0, 5)
+    .map((item) => ({
+      groupKey: item.groupKey,
+      title: item.title,
+      category: item.category,
+      usableMembers: item.usableMembers,
+      failedMembers: item.failedMembers,
+      askDistanceToOne: item.askDistanceToOne,
+      bidDistanceToOne: item.bidDistanceToOne,
+      orderingViolationCount: item.orderingViolations?.length ?? 0,
+      nearMissScore: item.nearMissScore
+    }));
+
+  ctx.logger.info({ groups: groups.length, detected, topNearMisses }, 'Grouped market scan complete');
 }
