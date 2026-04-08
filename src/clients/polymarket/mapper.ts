@@ -22,6 +22,8 @@ export function mapGammaMarket(raw: RawGammaMarket): Market {
     closed: Boolean(raw.closed),
     updatedAt: raw.updatedAt ? new Date(raw.updatedAt).getTime() : Date.now(),
     liquidityUsd: raw.liquidityNum ?? Number(raw.liquidity ?? 0),
+    volume24h: raw.volume24hr ?? 0,
+    acceptingOrders: Boolean(raw.acceptingOrders),
     outcomes: tokenIds.slice(0, 2).map((tokenId, index) => ({
       tokenId,
       outcome: index === 0 ? 'YES' : 'NO'

@@ -10,5 +10,7 @@ export interface Market {
   closed?: boolean;
   updatedAt: number;
   liquidityUsd?: number;
+  volume24h?: number;
+  acceptingOrders?: boolean;
   outcomes: OutcomeToken[];
 }

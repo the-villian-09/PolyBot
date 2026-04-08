@@ -16,8 +16,14 @@ function mergeOutcomeBooks(marketId: string, yesBook: OrderBook, noBook: OrderBo
   };
 }
 
-function byLiquidityDescending(a: Market, b: Market): number {
-  return (b.liquidityUsd ?? 0) - (a.liquidityUsd ?? 0);
+function byPriority(a: Market, b: Market): number {
+  const scoreA = (a.volume24h ?? 0) * 3 + (a.liquidityUsd ?? 0);
+  const scoreB = (b.volume24h ?? 0) * 3 + (b.liquidityUsd ?? 0);
+  return scoreB - scoreA;
+}
+
+function isPromisingMarket(market: Market, _env: AppContext['env']): boolean {
+  return Boolean(market.acceptingOrders) && (market.volume24h ?? 0) > 1000 && (market.liquidityUsd ?? 0) > 1000;
 }
 
 async function processMarket(ctx: AppContext, market: Market): Promise<{ detected: number; missed: number; reasons: string[] }> {
@@ -85,15 +91,16 @@ async function processMarket(ctx: AppContext, market: Market): Promise<{ detecte
 
 export async function runReadOnlyCycle(ctx: AppContext): Promise<void> {
   const rawMarkets = await ctx.polymarketClient.getActiveGammaMarkets();
-  const markets = rawMarkets
+  const candidateMarkets = rawMarkets
     .map(mapGammaMarket)
     .filter((market) => market.active && !market.closed && market.outcomes.length >= 2)
-    .sort(byLiquidityDescending)
+    .filter((market) => isPromisingMarket(market, ctx.env))
+    .sort(byPriority)
     .slice(0, ctx.env.DRY_RUN_MARKET_LIMIT);
 
-  ctx.marketStore.bulkUpsert(markets);
+  ctx.marketStore.bulkUpsert(candidateMarkets);
   ctx.logger.info(
-    { tradableCandidates: markets.length, marketLimit: ctx.env.DRY_RUN_MARKET_LIMIT, bookFetchConcurrency: ctx.env.BOOK_FETCH_CONCURRENCY },
+    { tradableCandidates: candidateMarkets.length, marketLimit: ctx.env.DRY_RUN_MARKET_LIMIT, bookFetchConcurrency: ctx.env.BOOK_FETCH_CONCURRENCY },
     'Fetched tradable Gamma markets'
   );
 
@@ -101,8 +108,8 @@ export async function runReadOnlyCycle(ctx: AppContext): Promise<void> {
   let cycleMissed = 0;
   const reasonCounts = new Map<string, number>();
 
-  for (let index = 0; index < markets.length; index += ctx.env.BOOK_FETCH_CONCURRENCY) {
-    const batch = markets.slice(index, index + ctx.env.BOOK_FETCH_CONCURRENCY);
+  for (let index = 0; index < candidateMarkets.length; index += ctx.env.BOOK_FETCH_CONCURRENCY) {
+    const batch = candidateMarkets.slice(index, index + ctx.env.BOOK_FETCH_CONCURRENCY);
     const results = await Promise.all(batch.map((market) => processMarket(ctx, market)));
 
     for (const result of results) {

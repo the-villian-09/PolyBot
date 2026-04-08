@@ -31,6 +31,8 @@ export interface RawGammaMarket {
   updatedAt?: string | number;
   liquidity?: string | number;
   liquidityNum?: number;
+  volume24hr?: number;
+  acceptingOrders?: boolean;
   clobTokenIds?: string;
   outcomes?: string;
 }
