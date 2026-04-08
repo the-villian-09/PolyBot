@@ -15,6 +15,7 @@ export interface GroupDiagnostics {
   askDistanceToOne: number;
   bidDistanceToOne: number;
   failures: Array<{ marketId: string; question: string; reason: string }>;
+  memberPrices: Array<{ marketId: string; question: string; sortKey?: number; bestYesBid: number; bestYesAsk: number }>;
   orderingViolations?: Array<{ earlierMarketId: string; laterMarketId: string; earlierAsk: number; laterAsk: number }>;
   nearMissScore: number;
 }
@@ -84,6 +85,13 @@ export async function scanGroup(group: MarketGroup, ctx: AppContext): Promise<Gr
     askDistanceToOne: summedYesAsk - 1,
     bidDistanceToOne: 1 - summedYesBid,
     failures,
+    memberPrices: usable.map((member) => ({
+      marketId: member.marketId,
+      question: member.question,
+      sortKey: member.sortKey,
+      bestYesBid: member.bid,
+      bestYesAsk: member.ask
+    })),
     orderingViolations,
     nearMissScore: calculateNearMissScore(group.category, summedYesAsk - 1, 1 - summedYesBid, orderingViolations.length, failures.length)
   };

@@ -31,6 +31,7 @@ export async function runGroupedReadOnlyCycle(ctx: AppContext): Promise<void> {
         bidDistanceToOne: result.diagnostics.bidDistanceToOne,
         orderingViolationCount: result.diagnostics.orderingViolations?.length ?? 0,
         nearMissScore: result.diagnostics.nearMissScore,
+        memberPrices: result.diagnostics.memberPrices.slice(0, 6),
         failures: result.diagnostics.failures.slice(0, 5)
       }, 'Grouped market diagnostics');
     }
@@ -62,7 +63,8 @@ export async function runGroupedReadOnlyCycle(ctx: AppContext): Promise<void> {
       askDistanceToOne: item.askDistanceToOne,
       bidDistanceToOne: item.bidDistanceToOne,
       orderingViolationCount: item.orderingViolations?.length ?? 0,
-      nearMissScore: item.nearMissScore
+      nearMissScore: item.nearMissScore,
+      memberPrices: item.memberPrices.slice(0, 4)
     }));
 
   ctx.logger.info({ groups: groups.length, detected, topNearMisses }, 'Grouped market scan complete');
