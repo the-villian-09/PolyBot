@@ -64,8 +64,10 @@ export async function runGroupedReadOnlyCycle(ctx: AppContext): Promise<void> {
     detected += 1;
     const simulated = simulateCryptoPaperTrade(result.opportunity, result.diagnostics ?? undefined);
     ctx.opportunitiesRepo.recordGroupOpportunity(simulated);
+    let repeatability = null;
     if (simulated.category === 'crypto-threshold-family') {
       ctx.opportunitiesRepo.recordPaperCryptoLadder(simulated);
+      repeatability = ctx.opportunitiesRepo.getRepeatability(simulated.groupKey);
     }
 
     ctx.logger.info({
@@ -83,6 +85,7 @@ export async function runGroupedReadOnlyCycle(ctx: AppContext): Promise<void> {
       simulatedTradeSizeUsd: simulated.simulatedTradeSizeUsd,
       simulatedPnlUsd: simulated.simulatedPnlUsd,
       simulationNotes: simulated.simulationNotes,
+      repeatability,
       note: simulated.note
     }, 'Grouped opportunity detected');
   }
