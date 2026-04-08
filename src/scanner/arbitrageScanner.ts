@@ -28,14 +28,24 @@ export function scanOrderBook(book: OrderBook, env: AppEnv): ScanResult {
   const yesPrice = yesAsk.price;
   const noPrice = noAsk.price;
   const edge = calculateEdge(yesPrice, noPrice);
-  const spread = calculateSpread(yesBid.price, yesAsk.price);
+  const yesSpread = calculateSpread(yesBid.price, yesAsk.price);
+  const noSpread = calculateSpread(noBid.price, noAsk.price);
   const totalAsk = yesPrice + noPrice;
   const liquidity = Math.min(yesAsk.size, noAsk.size);
   const suggestedTradeSize = Math.min(env.MAX_TRADE_SIZE_USD, liquidity * env.MAX_LIQUIDITY_FRACTION);
+  const mirroredAskGap = Math.abs((yesPrice + noPrice) - 1);
+  const mirroredBidGap = Math.abs((yesBid.price + noBid.price) - 1);
 
+  if (yesBid.price < env.MIN_BOOK_BID_PRICE) skipReasons.push('yes bid below quality floor');
+  if (noBid.price < env.MIN_BOOK_BID_PRICE) skipReasons.push('no bid below quality floor');
+  if (yesPrice > env.MAX_BOOK_ASK_PRICE) skipReasons.push('yes ask above quality ceiling');
+  if (noPrice > env.MAX_BOOK_ASK_PRICE) skipReasons.push('no ask above quality ceiling');
+  if (mirroredAskGap > env.MAX_MIRROR_GAP) skipReasons.push('ask pair not near parity');
+  if (mirroredBidGap > env.MAX_MIRROR_GAP) skipReasons.push('bid pair not near parity');
   if (totalAsk >= env.ARBITRAGE_MAX_TOTAL_PRICE) skipReasons.push('combined ask too high');
   if (edge <= env.MIN_EDGE) skipReasons.push('edge below threshold');
-  if (spread >= env.MAX_SPREAD) skipReasons.push('yes spread too wide');
+  if (yesSpread >= env.MAX_SPREAD) skipReasons.push('yes spread too wide');
+  if (noSpread >= env.MAX_SPREAD) skipReasons.push('no spread too wide');
   if (liquidity < suggestedTradeSize * env.MIN_LIQUIDITY_MULTIPLIER) skipReasons.push('insufficient displayed liquidity');
   if (suggestedTradeSize <= 0) skipReasons.push('trade size is zero');
   if (Date.now() - book.updatedAt > env.MARKET_FRESHNESS_MS) skipReasons.push('stale book');
@@ -50,7 +60,7 @@ export function scanOrderBook(book: OrderBook, env: AppEnv): ScanResult {
       yesPrice,
       noPrice,
       edge,
-      spread,
+      spread: Math.max(yesSpread, noSpread),
       liquidity,
       suggestedTradeSize,
       detectedAt: Date.now()
