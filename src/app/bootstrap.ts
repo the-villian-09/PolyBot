@@ -1,0 +1,28 @@
+import { loadEnv } from '../config/env';
+import { createLogger } from '../telemetry/logger';
+import { OrderBookStore } from '../state/orderbookStore';
+import { PolymarketRestClient } from '../clients/polymarket/restClient';
+
+export interface AppContext {
+  env: ReturnType<typeof loadEnv>;
+  logger: ReturnType<typeof createLogger>;
+  orderBookStore: OrderBookStore;
+  polymarketClient: PolymarketRestClient;
+}
+
+export function bootstrap(): AppContext {
+  const env = loadEnv();
+  const logger = createLogger(env);
+
+  const orderBookStore = new OrderBookStore();
+  const polymarketClient = new PolymarketRestClient(env.POLYMARKET_API_BASE_URL);
+
+  logger.info({ mode: env.APP_MODE }, 'PolyEdge Lite bootstrap complete');
+
+  return {
+    env,
+    logger,
+    orderBookStore,
+    polymarketClient
+  };
+}
