@@ -31,6 +31,9 @@ export async function runGroupedReadOnlyCycle(ctx: AppContext): Promise<void> {
         bidDistanceToOne: result.diagnostics.bidDistanceToOne,
         orderingViolationCount: result.diagnostics.orderingViolations?.length ?? 0,
         nearMissScore: result.diagnostics.nearMissScore,
+        severityScore: result.diagnostics.severityScore,
+        feasible: result.diagnostics.feasible,
+        feasibilityReasons: result.diagnostics.feasibilityReasons,
         memberPrices: result.diagnostics.memberPrices.slice(0, 6),
         failures: result.diagnostics.failures.slice(0, 5)
       }, 'Grouped market diagnostics');
@@ -48,31 +51,27 @@ export async function runGroupedReadOnlyCycle(ctx: AppContext): Promise<void> {
       summedYesAsk: result.opportunity.summedYesAsk,
       summedYesBid: result.opportunity.summedYesBid,
       edgeToOne: result.opportunity.edgeToOne,
+      severityScore: result.opportunity.severityScore,
+      feasible: result.opportunity.feasible,
+      feasibilityReasons: result.opportunity.feasibilityReasons,
       note: result.opportunity.note
     }, 'Grouped opportunity detected');
   }
 
-  const topNearMisses = diagnosticsList
-    .sort((a, b) => a.nearMissScore - b.nearMissScore)
-    .slice(0, 5)
-    .map((item) => ({
-      groupKey: item.groupKey,
-      title: item.title,
-      category: item.category,
-      usableMembers: item.usableMembers,
-      failedMembers: item.failedMembers,
-      askDistanceToOne: item.askDistanceToOne,
-      bidDistanceToOne: item.bidDistanceToOne,
-      orderingViolationCount: item.orderingViolations?.length ?? 0,
-      nearMissScore: item.nearMissScore,
-      memberPrices: item.memberPrices.slice(0, 4)
-    }));
+  const topNearMisses = diagnosticsList.sort((a, b) => a.nearMissScore - b.nearMissScore).slice(0, 5).map((item) => ({
+    groupKey: item.groupKey,
+    title: item.title,
+    category: item.category,
+    usableMembers: item.usableMembers,
+    failedMembers: item.failedMembers,
+    askDistanceToOne: item.askDistanceToOne,
+    bidDistanceToOne: item.bidDistanceToOne,
+    orderingViolationCount: item.orderingViolations?.length ?? 0,
+    nearMissScore: item.nearMissScore,
+    severityScore: item.severityScore,
+    feasible: item.feasible,
+    memberPrices: item.memberPrices.slice(0, 4)
+  }));
 
-  ctx.logger.info({
-    groups: groups.length,
-    detected,
-    groupedPersisted: ctx.opportunitiesRepo.listGrouped().length,
-    cryptoLaddersPersisted: ctx.opportunitiesRepo.listCryptoLadders().length,
-    topNearMisses
-  }, 'Grouped market scan complete');
+  ctx.logger.info({ groups: groups.length, detected, groupedPersisted: ctx.opportunitiesRepo.listGrouped().length, cryptoLaddersPersisted: ctx.opportunitiesRepo.listCryptoLadders().length, topNearMisses }, 'Grouped market scan complete');
 }

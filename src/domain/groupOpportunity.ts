@@ -6,6 +6,9 @@ export interface GroupOpportunity {
   summedYesAsk: number;
   summedYesBid: number;
   edgeToOne: number;
+  severityScore?: number;
+  feasible?: boolean;
+  feasibilityReasons?: string[];
   detectedAt: number;
   note: string;
 }

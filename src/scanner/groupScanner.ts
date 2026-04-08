@@ -18,6 +18,9 @@ export interface GroupDiagnostics {
   memberPrices: Array<{ marketId: string; question: string; sortKey?: number; bestYesBid: number; bestYesAsk: number }>;
   orderingViolations?: Array<{ earlierMarketId: string; laterMarketId: string; earlierAsk: number; laterAsk: number }>;
   nearMissScore: number;
+  severityScore?: number;
+  feasible?: boolean;
+  feasibilityReasons?: string[];
 }
 
 export interface GroupScanResult {
@@ -29,7 +32,6 @@ function calculateNearMissScore(category: GroupDiagnostics['category'], askDista
   if (category === 'timeframe-market' || category === 'crypto-threshold-family') {
     return orderingViolationCount > 0 ? 0 : 1000 + failures;
   }
-
   return Math.min(Math.abs(askDistanceToOne), Math.abs(bidDistanceToOne)) + failures * 0.1;
 }
 
@@ -73,6 +75,14 @@ export async function scanGroup(group: MarketGroup, ctx: AppContext): Promise<Gr
     }
   }
 
+  const severityScore = orderingViolations.length > 0
+    ? orderingViolations.reduce((max, item) => Math.max(max, item.laterAsk - item.earlierAsk), 0)
+    : undefined;
+  const feasibilityReasons: string[] = [];
+  if ((usable[0]?.bid ?? 0) < ctx.env.MIN_GROUP_BID_LIQUIDITY) feasibilityReasons.push('top ladder bid liquidity too low');
+  if ((severityScore ?? 0) < ctx.env.MIN_GROUP_EDGE) feasibilityReasons.push('group edge below threshold');
+  const feasible = feasibilityReasons.length === 0;
+
   const diagnostics: GroupDiagnostics = {
     groupKey: group.groupKey,
     title: group.title,
@@ -85,20 +95,15 @@ export async function scanGroup(group: MarketGroup, ctx: AppContext): Promise<Gr
     askDistanceToOne: summedYesAsk - 1,
     bidDistanceToOne: 1 - summedYesBid,
     failures,
-    memberPrices: usable.map((member) => ({
-      marketId: member.marketId,
-      question: member.question,
-      sortKey: member.sortKey,
-      bestYesBid: member.bid,
-      bestYesAsk: member.ask
-    })),
+    memberPrices: usable.map((member) => ({ marketId: member.marketId, question: member.question, sortKey: member.sortKey, bestYesBid: member.bid, bestYesAsk: member.ask })),
     orderingViolations,
-    nearMissScore: calculateNearMissScore(group.category, summedYesAsk - 1, 1 - summedYesBid, orderingViolations.length, failures.length)
+    nearMissScore: calculateNearMissScore(group.category, summedYesAsk - 1, 1 - summedYesBid, orderingViolations.length, failures.length),
+    severityScore,
+    feasible,
+    feasibilityReasons
   };
 
-  if (usableMembers < 2) {
-    return { opportunity: null, diagnostics };
-  }
+  if (usableMembers < 2) return { opportunity: null, diagnostics };
 
   if ((group.category === 'timeframe-market' || group.category === 'crypto-threshold-family') && orderingViolations.length > 0) {
     return {
@@ -110,7 +115,10 @@ export async function scanGroup(group: MarketGroup, ctx: AppContext): Promise<Gr
         memberCount: group.members.length,
         summedYesAsk,
         summedYesBid,
-        edgeToOne: orderingViolations[0].laterAsk - orderingViolations[0].earlierAsk,
+        edgeToOne: severityScore ?? 0,
+        severityScore,
+        feasible,
+        feasibilityReasons,
         detectedAt: Date.now(),
         note: `${group.category === 'crypto-threshold-family' ? 'Threshold' : 'Time'} ordering violation count=${orderingViolations.length}`
       }
@@ -118,6 +126,7 @@ export async function scanGroup(group: MarketGroup, ctx: AppContext): Promise<Gr
   }
 
   if ((group.category === 'champion-market' || group.category === 'exclusive-outcome-market' || group.category === 'trump-family' || group.category === 'crypto-family') && (summedYesAsk <= 1 || summedYesBid >= 1)) {
+    const edgeToOne = summedYesAsk <= 1 ? 1 - summedYesAsk : summedYesBid - 1;
     return {
       diagnostics,
       opportunity: {
@@ -127,11 +136,12 @@ export async function scanGroup(group: MarketGroup, ctx: AppContext): Promise<Gr
         memberCount: group.members.length,
         summedYesAsk,
         summedYesBid,
-        edgeToOne: summedYesAsk <= 1 ? 1 - summedYesAsk : summedYesBid - 1,
+        edgeToOne,
+        severityScore: edgeToOne,
+        feasible,
+        feasibilityReasons,
         detectedAt: Date.now(),
-        note: summedYesAsk <= 1
-          ? `Completeness gap on asks, askDistanceToOne=${(summedYesAsk - 1).toFixed(4)}`
-          : `Bid-side overfill, bidDistanceToOne=${(1 - summedYesBid).toFixed(4)}`
+        note: summedYesAsk <= 1 ? `Completeness gap on asks, askDistanceToOne=${(summedYesAsk - 1).toFixed(4)}` : `Bid-side overfill, bidDistanceToOne=${(1 - summedYesBid).toFixed(4)}`
       }
     };
   }

@@ -21,6 +21,8 @@ export const envSchema = z.object({
   MIN_BOOK_BID_PRICE: z.coerce.number().default(0.05),
   MAX_BOOK_ASK_PRICE: z.coerce.number().default(0.95),
   MAX_MIRROR_GAP: z.coerce.number().default(0.05),
+  MIN_GROUP_EDGE: z.coerce.number().default(0.005),
+  MIN_GROUP_BID_LIQUIDITY: z.coerce.number().default(0.001),
   ARBITRAGE_MAX_TOTAL_PRICE: z.coerce.number().default(0.97),
   MIN_EDGE: z.coerce.number().default(0.012),
   MAX_SPREAD: z.coerce.number().default(0.02),
