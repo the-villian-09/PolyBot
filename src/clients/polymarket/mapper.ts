@@ -1,0 +1,40 @@
+import type { Market } from '../../domain/market';
+import type { OrderBook } from '../../domain/orderbook';
+import type { RawPolymarketMarket, RawPolymarketOrderBook } from './types';
+
+export function mapMarket(raw: RawPolymarketMarket): Market {
+  const rawTokens = raw.tokens ?? [];
+
+  return {
+    id: raw.id,
+    question: raw.question ?? 'Unknown market',
+    active: Boolean(raw.active),
+    closed: Boolean(raw.closed),
+    updatedAt: raw.updatedAt
+      ? new Date(raw.updatedAt).getTime()
+      : raw.updated_at
+        ? new Date(raw.updated_at).getTime()
+        : Date.now(),
+    liquidityUsd: raw.liquidity ?? raw.liquidity_num,
+    outcomes: raw.outcomes?.length
+      ? raw.outcomes.map((outcome) => ({
+          tokenId: outcome.tokenId,
+          outcome: outcome.outcome?.toUpperCase() === 'NO' ? 'NO' : 'YES'
+        }))
+      : rawTokens.map((token, index) => ({
+          tokenId: token.tokenId ?? token.token_id ?? `unknown-${index}`,
+          outcome: index === 0 ? 'YES' : 'NO'
+        }))
+  };
+}
+
+export function mapOrderBook(raw: RawPolymarketOrderBook): OrderBook {
+  return {
+    marketId: raw.marketId,
+    yesBids: raw.yesBids ?? [],
+    yesAsks: raw.yesAsks ?? [],
+    noBids: raw.noBids ?? [],
+    noAsks: raw.noAsks ?? [],
+    updatedAt: raw.updatedAt ? new Date(raw.updatedAt).getTime() : Date.now()
+  };
+}

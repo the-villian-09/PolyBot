@@ -1,22 +1,24 @@
-# PolyEdge Lite
+# PolyBot
 
-PolyEdge Lite v1.2 is a lean MVP Polymarket arbitrage bot focused on clean execution, good filtering, and stability.
+PolyBot is a lean MVP Polymarket arbitrage bot focused on clean execution, good filtering, and stability.
 
-## Current scaffold
+## Current status
 
-This repository currently includes:
+The repository currently includes:
 - TypeScript project setup
 - env validation
 - structured logging
 - core domain types
-- orderbook store
-- scanner and validation stubs
-- Polymarket client stub
+- market and orderbook stores
+- scanner and validation logic
+- Polymarket read-only client scaffold
+- read-only cycle for markets, books, and opportunity logging
+- Polymarket integration checklist docs
 
 ## Commands
 
 ```bash
-npm install
+npm install --include=dev
 npm run build
 npm run dev
 npm test
