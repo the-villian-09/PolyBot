@@ -2,10 +2,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { Opportunity } from '../domain/opportunity';
 import type { MissedOpportunity } from '../domain/missedOpportunity';
+import type { GroupOpportunity } from '../domain/groupOpportunity';
 
 export class OpportunitiesRepo {
   private readonly detected: Opportunity[] = [];
   private readonly missed: MissedOpportunity[] = [];
+  private readonly grouped: GroupOpportunity[] = [];
+  private readonly cryptoLadders: GroupOpportunity[] = [];
 
   constructor(private readonly baseDir: string = './data') {}
 
@@ -19,12 +22,30 @@ export class OpportunitiesRepo {
     this.appendJsonl('opportunities.missed.jsonl', missedOpportunity);
   }
 
+  recordGroupOpportunity(opportunity: GroupOpportunity): void {
+    this.grouped.push(opportunity);
+    this.appendJsonl('opportunities.grouped.jsonl', opportunity);
+
+    if (opportunity.category === 'crypto-threshold-family') {
+      this.cryptoLadders.push(opportunity);
+      this.appendJsonl('opportunities.crypto-ladders.jsonl', opportunity);
+    }
+  }
+
   listDetected(): Opportunity[] {
     return [...this.detected];
   }
 
   listMissed(): MissedOpportunity[] {
     return [...this.missed];
+  }
+
+  listGrouped(): GroupOpportunity[] {
+    return [...this.grouped];
+  }
+
+  listCryptoLadders(): GroupOpportunity[] {
+    return [...this.cryptoLadders];
   }
 
   private appendJsonl(fileName: string, payload: unknown): void {

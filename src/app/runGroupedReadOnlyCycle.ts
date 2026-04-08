@@ -39,6 +39,7 @@ export async function runGroupedReadOnlyCycle(ctx: AppContext): Promise<void> {
     if (!result.opportunity) continue;
 
     detected += 1;
+    ctx.opportunitiesRepo.recordGroupOpportunity(result.opportunity);
     ctx.logger.info({
       groupKey: result.opportunity.groupKey,
       title: result.opportunity.title,
@@ -67,5 +68,11 @@ export async function runGroupedReadOnlyCycle(ctx: AppContext): Promise<void> {
       memberPrices: item.memberPrices.slice(0, 4)
     }));
 
-  ctx.logger.info({ groups: groups.length, detected, topNearMisses }, 'Grouped market scan complete');
+  ctx.logger.info({
+    groups: groups.length,
+    detected,
+    groupedPersisted: ctx.opportunitiesRepo.listGrouped().length,
+    cryptoLaddersPersisted: ctx.opportunitiesRepo.listCryptoLadders().length,
+    topNearMisses
+  }, 'Grouped market scan complete');
 }

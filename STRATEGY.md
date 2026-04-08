@@ -3,77 +3,55 @@
 ## Goal
 Build a lean, headless Polymarket bot that finds and logs realistic pricing inefficiencies, starting in read-only and paper mode, designed for stable 24/7 operation on a VPS.
 
-## Core shift
+## Current primary thesis
+PolyBot should now treat **crypto threshold ladders** as the primary MVP opportunity class.
 
-### Old assumption
-Scan single binary markets for static buy-both-sides arbitrage:
-- `YES ask + NO ask < 1`
+The first live grouped detection came from a crypto threshold family:
+- lower threshold and higher threshold contracts on the same post-launch FDV event
+- the higher threshold was priced above the lower threshold on the ask side
+- this created a clean ordering violation that is structurally more promising than the broad winner-family and mirrored-book scans tested earlier
 
-### Revised assumption
-This pattern is too rare to be the main MVP edge source on the live books we inspected.
-Polymarket books often preserve parity while remaining very wide.
-The MVP should focus on mispricing across related markets, not only within one mirrored binary book.
+## Strategy priority order
+1. crypto threshold ladders
+2. tech milestone and launch ladders
+3. politics dependency logic
+4. geopolitics by-date ladders
+5. everything else later
 
-## MVP strategy focus
+## Why the pivot happened
+Earlier live testing showed:
+- single-market YES/NO ask arbitrage was effectively absent in the sampled live books
+- winner-family completeness scans were heavily overround and not close to actionable
+- broad grouped scans mostly produced wide-book noise
 
-### A. Related-market mispricing detection
-Find logically linked markets where prices imply contradictions or inconsistent probabilities.
+Crypto ladders were the first family that produced a live structural inconsistency with clean explanatory logic.
+
+## Core MVP strategy
+
+### Primary opportunity type, Crypto threshold ordering violations
+For contracts on the same crypto event with ordered thresholds:
+- lower threshold YES should be at least as expensive as higher threshold YES
+- if the higher threshold is priced above the lower threshold, flag an ordering violation
 
 Examples:
-- event A should imply event B, but prices disagree
-- overlapping markets sum to impossible probability
-- mutually exclusive outcomes exceed or underfill expected total
-- timeframe markets create inconsistent ordering
+- FDV greater than $2B vs FDV greater than $6B one day after launch
+- token price greater than X vs greater than Y by the same time horizon
 
-### B. Category-aware scanning
-Only scan market families where relationship logic is clear enough to model safely.
-
-Good candidates:
-- election or politics chains
-- sports series or bracket relationships
-- milestone timing markets
-- event-before-event markets
-- grouped market sets from the same event family
-
-Avoid for MVP:
-- vague unrelated standalone binaries
-- markets with unclear dependency structure
-- low-information novelty markets
-
-## Non-goals
-Still out of scope:
-- AI or news sentiment
-- dashboards or UI
-- dynamic ML scoring
-- autonomous strategy mutation
-- broad market-making
-- complex multi-leg live execution beyond simple controlled orders
-
-## Opportunity types for MVP
-PolyBot should detect and rank these:
-
-### Type 1. Mutual exclusivity violations
-If several outcomes cannot all happen, total implied probability should not exceed sane bounds.
-
-### Type 2. Completeness gaps
-If a set of outcomes should cover all possibilities, total implied probability should not be materially below or above 1 after fees and slippage allowance.
-
-### Type 3. Temporal inconsistency
-If one event must occur before another, shorter-horizon and longer-horizon prices should respect ordering.
-
-### Type 4. Parent-child inconsistency
-If a child market outcome implies a parent outcome, the child price should not exceed the parent beyond tolerance.
+### Secondary opportunity types, later
+- tech milestone and launch ladders
+- politics parent-child implications
+- geopolitics by-date chains
 
 ## Data requirements
 PolyBot should ingest:
 - active markets from Gamma
 - token and book data from CLOB
-- event and group metadata needed to cluster related markets
+- group/event metadata needed to cluster related markets
 
 For each market, capture:
 - question
-- group or event relationship
-- outcome labels
+- event/group relationship
+- ordered threshold metadata where possible
 - token IDs
 - liquidity
 - recent volume
@@ -81,18 +59,19 @@ For each market, capture:
 - best bid and ask on both sides
 
 ## Candidate filtering
-A market is eligible only if:
+A market or family is eligible only if:
 - accepting orders
 - active and not closed
 - relationship group is recognized
 - enough liquidity and recent volume
 - book quality passes minimum thresholds
 - timestamps are fresh enough
+- threshold ordering can be parsed unambiguously
 
 ## Opportunity validation rules
 A candidate should pass:
-- relationship logic check
-- minimum gross edge
+- ordering logic check
+- minimum inversion size or severity threshold
 - spread sanity
 - enough displayed liquidity
 - execution size cap
@@ -103,13 +82,14 @@ A candidate should pass:
 
 ### dry-run
 - scan continuously
-- log candidates
-- log skip reasons
-- store grouped mispricing diagnostics
+- log grouped diagnostics
+- persist grouped opportunities
+- persist crypto ladder detections separately
+- rank top near-miss families
 
 ### paper
-- simulate order intents
-- simulate fills conservatively
+- simulate order intents on ladder opportunities
+- model fills conservatively
 - record would-trade vs skipped
 
 ### live-small
@@ -119,7 +99,7 @@ A candidate should pass:
 
 ## Safety rules
 - fail closed on stale data
-- fail closed on ambiguous market relationships
+- fail closed on ambiguous threshold parsing
 - fail closed on missing book legs
 - no live trading unless explicit safety flags are enabled
 - reconciliation required before execution work matters
@@ -128,13 +108,14 @@ A candidate should pass:
 
 ### Phase 1
 - relationship-group discovery
-- market clustering
-- read-only inconsistency scanner
-- detailed skip and candidate logging
+- crypto ladder clustering
+- read-only ladder inconsistency scanner
+- grouped opportunity persistence
+- detailed grouped diagnostics and near-miss ranking
 
 ### Phase 2
-- paper execution skeleton
-- persistence for candidate history
+- paper execution skeleton for ladder opportunities
+- severity scoring and execution-feasibility checks
 - confidence and quality filters
 
 ### Phase 3
@@ -144,10 +125,10 @@ A candidate should pass:
 
 ## Immediate next build step
 Implement:
-1. market grouping and clustering
-2. relationship rules for one category first
-3. a read-only mispricing detector for grouped markets
+1. richer ladder-specific severity ranking
+2. execution-feasibility checks for ladder detections
+3. tech ladder support using the same ordered-threshold framework
 
 ## Recommendation
-Start with one clean category first, not the whole exchange.
-The best first target is a market family with obvious logical relationships and repeatable structure.
+Do not spread effort evenly across many weak families.
+Make crypto ladders the main MVP path, expand only after repeated live detections hold up under realistic execution assumptions.
