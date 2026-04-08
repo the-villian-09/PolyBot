@@ -16,6 +16,8 @@ export const envSchema = z.object({
   WALLET_ADDRESS: z.string().optional().default(''),
   SCAN_INTERVAL_MS: z.coerce.number().default(200),
   MARKET_FRESHNESS_MS: z.coerce.number().default(3000),
+  DRY_RUN_MARKET_LIMIT: z.coerce.number().int().positive().default(50),
+  BOOK_FETCH_CONCURRENCY: z.coerce.number().int().positive().default(5),
   ARBITRAGE_MAX_TOTAL_PRICE: z.coerce.number().default(0.97),
   MIN_EDGE: z.coerce.number().default(0.012),
   MAX_SPREAD: z.coerce.number().default(0.02),
@@ -49,6 +51,10 @@ export const envSchema = z.object({
 
   if (env.MAX_TRADE_SIZE_USD > env.MAX_TOTAL_CAPITAL_USD) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'MAX_TRADE_SIZE_USD cannot exceed MAX_TOTAL_CAPITAL_USD' });
+  }
+
+  if (env.BOOK_FETCH_CONCURRENCY > env.DRY_RUN_MARKET_LIMIT) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'BOOK_FETCH_CONCURRENCY cannot exceed DRY_RUN_MARKET_LIMIT' });
   }
 
   if (liveMode) {
