@@ -33,6 +33,12 @@ function normalizeTimeframeStem(question: string): { stem: string; sortKey: numb
   };
 }
 
+function parseThresholdSortKey(question: string): number | null {
+  const match = question.match(/>\$(\d+(?:\.\d+)?)B/i);
+  if (!match) return null;
+  return Number(match[1]);
+}
+
 function buildChampionGroups(markets: Market[]): MarketGroup[] {
   const championMarkets = markets.filter(isChampionMarket);
   const byEvent = new Map<string, MarketGroup>();
@@ -43,13 +49,7 @@ function buildChampionGroups(markets: Market[]): MarketGroup[] {
     if (!yesToken || !noToken) continue;
 
     const groupKey = `champion-market:${market.eventTitle ?? 'unknown-event'}`;
-    const existing = byEvent.get(groupKey) ?? {
-      groupKey,
-      category: 'champion-market' as const,
-      title: market.eventTitle ?? 'Unknown champion market group',
-      members: []
-    };
-
+    const existing = byEvent.get(groupKey) ?? { groupKey, category: 'champion-market' as const, title: market.eventTitle ?? 'Unknown champion market group', members: [] };
     existing.members.push({ marketId: market.id, question: market.question, yesTokenId: yesToken.tokenId, noTokenId: noToken.tokenId, liquidityUsd: market.liquidityUsd, volume24h: market.volume24h });
     byEvent.set(groupKey, existing);
   }
@@ -69,13 +69,7 @@ function buildExclusiveOutcomeGroups(markets: Market[]): MarketGroup[] {
     if (!yesToken || !noToken) continue;
 
     const groupKey = `exclusive-outcome-market:${eventTitle}`;
-    const existing = byEvent.get(groupKey) ?? {
-      groupKey,
-      category: 'exclusive-outcome-market' as const,
-      title: eventTitle,
-      members: []
-    };
-
+    const existing = byEvent.get(groupKey) ?? { groupKey, category: 'exclusive-outcome-market' as const, title: eventTitle, members: [] };
     existing.members.push({ marketId: market.id, question: market.question, yesTokenId: yesToken.tokenId, noTokenId: noToken.tokenId, liquidityUsd: market.liquidityUsd, volume24h: market.volume24h });
     byEvent.set(groupKey, existing);
   }
@@ -94,18 +88,31 @@ function buildThematicGroups(markets: Market[], predicate: (market: Market) => b
 
     const title = market.eventTitle || market.groupTitle || prefix;
     const groupKey = `${prefix}:${title}`;
-    const existing = byEvent.get(groupKey) ?? {
-      groupKey,
-      category: prefix,
-      title,
-      members: []
-    };
-
+    const existing = byEvent.get(groupKey) ?? { groupKey, category: prefix, title, members: [] };
     existing.members.push({ marketId: market.id, question: market.question, yesTokenId: yesToken.tokenId, noTokenId: noToken.tokenId, liquidityUsd: market.liquidityUsd, volume24h: market.volume24h });
     byEvent.set(groupKey, existing);
   }
 
   return [...byEvent.values()].filter((group) => group.members.length >= 2);
+}
+
+function buildCryptoThresholdGroups(markets: Market[]): MarketGroup[] {
+  const byEvent = new Map<string, MarketGroup>();
+
+  for (const market of markets.filter(isCryptoMarket)) {
+    const sortKey = parseThresholdSortKey(market.question);
+    const yesToken = market.outcomes[0];
+    const noToken = market.outcomes[1];
+    if (sortKey === null || !yesToken || !noToken) continue;
+
+    const title = market.eventTitle || 'crypto-threshold-family';
+    const groupKey = `crypto-threshold-family:${title}`;
+    const existing = byEvent.get(groupKey) ?? { groupKey, category: 'crypto-threshold-family' as const, title, members: [] };
+    existing.members.push({ marketId: market.id, question: market.question, yesTokenId: yesToken.tokenId, noTokenId: noToken.tokenId, liquidityUsd: market.liquidityUsd, volume24h: market.volume24h, sortKey });
+    byEvent.set(groupKey, existing);
+  }
+
+  return [...byEvent.values()].map((group) => ({ ...group, members: [...group.members].sort((a, b) => (a.sortKey ?? 0) - (b.sortKey ?? 0)) })).filter((group) => group.members.length >= 2);
 }
 
 function buildTimeframeGroups(markets: Market[]): MarketGroup[] {
@@ -118,13 +125,7 @@ function buildTimeframeGroups(markets: Market[]): MarketGroup[] {
     if (!parsed || !yesToken || !noToken) continue;
 
     const groupKey = `timeframe-market:${parsed.stem}`;
-    const existing = byStem.get(groupKey) ?? {
-      groupKey,
-      category: 'timeframe-market' as const,
-      title: parsed.stem,
-      members: []
-    };
-
+    const existing = byStem.get(groupKey) ?? { groupKey, category: 'timeframe-market' as const, title: parsed.stem, members: [] };
     existing.members.push({ marketId: market.id, question: market.question, yesTokenId: yesToken.tokenId, noTokenId: noToken.tokenId, liquidityUsd: market.liquidityUsd, volume24h: market.volume24h, sortKey: parsed.sortKey });
     byStem.set(groupKey, existing);
   }
@@ -138,6 +139,7 @@ export function groupMarkets(markets: Market[]): MarketGroup[] {
     ...buildExclusiveOutcomeGroups(markets),
     ...buildThematicGroups(markets, isTrumpMarket, 'trump-family'),
     ...buildThematicGroups(markets, isCryptoMarket, 'crypto-family'),
+    ...buildCryptoThresholdGroups(markets),
     ...buildTimeframeGroups(markets)
   ];
 }

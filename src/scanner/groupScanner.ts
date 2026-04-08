@@ -6,7 +6,7 @@ import type { AppContext } from '../app/bootstrap';
 export interface GroupDiagnostics {
   groupKey: string;
   title: string;
-  category: 'champion-market' | 'timeframe-market' | 'exclusive-outcome-market' | 'trump-family' | 'crypto-family';
+  category: 'champion-market' | 'timeframe-market' | 'exclusive-outcome-market' | 'trump-family' | 'crypto-family' | 'crypto-threshold-family';
   memberCount: number;
   usableMembers: number;
   failedMembers: number;
@@ -25,7 +25,7 @@ export interface GroupScanResult {
 }
 
 function calculateNearMissScore(category: GroupDiagnostics['category'], askDistanceToOne: number, bidDistanceToOne: number, orderingViolationCount: number, failures: number): number {
-  if (category === 'timeframe-market') {
+  if (category === 'timeframe-market' || category === 'crypto-threshold-family') {
     return orderingViolationCount > 0 ? 0 : 1000 + failures;
   }
 
@@ -61,12 +61,12 @@ export async function scanGroup(group: MarketGroup, ctx: AppContext): Promise<Gr
   }
 
   const orderingViolations: Array<{ earlierMarketId: string; laterMarketId: string; earlierAsk: number; laterAsk: number }> = [];
-  if (group.category === 'timeframe-market') {
+  if (group.category === 'timeframe-market' || group.category === 'crypto-threshold-family') {
     const sorted = [...usable].sort((a, b) => (a.sortKey ?? 0) - (b.sortKey ?? 0));
     for (let i = 0; i < sorted.length - 1; i += 1) {
       const earlier = sorted[i];
       const later = sorted[i + 1];
-      if (earlier && later && earlier.ask > later.ask) {
+      if (earlier && later && earlier.ask < later.ask) {
         orderingViolations.push({ earlierMarketId: earlier.marketId, laterMarketId: later.marketId, earlierAsk: earlier.ask, laterAsk: later.ask });
       }
     }
@@ -92,7 +92,7 @@ export async function scanGroup(group: MarketGroup, ctx: AppContext): Promise<Gr
     return { opportunity: null, diagnostics };
   }
 
-  if (group.category === 'timeframe-market' && orderingViolations.length > 0) {
+  if ((group.category === 'timeframe-market' || group.category === 'crypto-threshold-family') && orderingViolations.length > 0) {
     return {
       diagnostics,
       opportunity: {
@@ -102,9 +102,9 @@ export async function scanGroup(group: MarketGroup, ctx: AppContext): Promise<Gr
         memberCount: group.members.length,
         summedYesAsk,
         summedYesBid,
-        edgeToOne: orderingViolations[0].earlierAsk - orderingViolations[0].laterAsk,
+        edgeToOne: orderingViolations[0].laterAsk - orderingViolations[0].earlierAsk,
         detectedAt: Date.now(),
-        note: `Time ordering violation count=${orderingViolations.length}`
+        note: `${group.category === 'crypto-threshold-family' ? 'Threshold' : 'Time'} ordering violation count=${orderingViolations.length}`
       }
     };
   }
