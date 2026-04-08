@@ -4,25 +4,23 @@ import { groupMarkets } from '../grouping/groupMarkets';
 import { scanGroup, type GroupDiagnostics } from '../scanner/groupScanner';
 import type { GroupOpportunity } from '../domain/groupOpportunity';
 
-function simulateCryptoPaperTrade(opportunity: GroupOpportunity): GroupOpportunity {
+function simulateCryptoPaperTrade(opportunity: GroupOpportunity, diagnostics?: GroupDiagnostics): GroupOpportunity {
   if (opportunity.category !== 'crypto-threshold-family') return opportunity;
 
   const tradeSizeUsd = 25;
-  const conservativeFillPenalty = 0.003;
+  const minBidSize = diagnostics?.memberPrices.length ? Math.min(...diagnostics.memberPrices.map((item) => item.bestYesBidSize)) : 0;
+  const minAskSize = diagnostics?.memberPrices.length ? Math.min(...diagnostics.memberPrices.map((item) => item.bestYesAskSize)) : 0;
+  const depthPenalty = minAskSize > 0 ? Math.min(0.01, tradeSizeUsd / (minAskSize * 1000)) : 0.01;
+  const bidPenalty = minBidSize > 0 ? Math.min(0.005, tradeSizeUsd / (minBidSize * 2000)) : 0.005;
+  const conservativeFillPenalty = depthPenalty + bidPenalty;
   const simulatedNetEdge = (opportunity.edgeToOne ?? 0) - conservativeFillPenalty;
   const simulatedPnlUsd = simulatedNetEdge * tradeSizeUsd;
-  const simulationNotes: string[] = [];
+  const simulationNotes: string[] = [`depthPenalty=${depthPenalty.toFixed(4)}`, `bidPenalty=${bidPenalty.toFixed(4)}`];
 
-  if (simulatedNetEdge <= 0) simulationNotes.push('edge erased by conservative fill penalty');
+  if (simulatedNetEdge <= 0) simulationNotes.push('edge erased by depth-aware fill penalty');
   if (!opportunity.feasible) simulationNotes.push('base opportunity failed feasibility checks');
 
-  return {
-    ...opportunity,
-    simulatedTradeSizeUsd: tradeSizeUsd,
-    simulatedNetEdge,
-    simulatedPnlUsd,
-    simulationNotes
-  };
+  return { ...opportunity, simulatedTradeSizeUsd: tradeSizeUsd, simulatedNetEdge, simulatedPnlUsd, simulationNotes };
 }
 
 export async function runGroupedReadOnlyCycle(ctx: AppContext): Promise<void> {
@@ -64,7 +62,7 @@ export async function runGroupedReadOnlyCycle(ctx: AppContext): Promise<void> {
     if (!result.opportunity) continue;
 
     detected += 1;
-    const simulated = simulateCryptoPaperTrade(result.opportunity);
+    const simulated = simulateCryptoPaperTrade(result.opportunity, result.diagnostics ?? undefined);
     ctx.opportunitiesRepo.recordGroupOpportunity(simulated);
     if (simulated.category === 'crypto-threshold-family') {
       ctx.opportunitiesRepo.recordPaperCryptoLadder(simulated);
@@ -104,12 +102,5 @@ export async function runGroupedReadOnlyCycle(ctx: AppContext): Promise<void> {
     memberPrices: item.memberPrices.slice(0, 4)
   }));
 
-  ctx.logger.info({
-    groups: groups.length,
-    detected,
-    groupedPersisted: ctx.opportunitiesRepo.listGrouped().length,
-    cryptoLaddersPersisted: ctx.opportunitiesRepo.listCryptoLadders().length,
-    paperCryptoLaddersPersisted: ctx.opportunitiesRepo.listPaperCryptoLadders().length,
-    topNearMisses
-  }, 'Grouped market scan complete');
+  ctx.logger.info({ groups: groups.length, detected, groupedPersisted: ctx.opportunitiesRepo.listGrouped().length, cryptoLaddersPersisted: ctx.opportunitiesRepo.listCryptoLadders().length, paperCryptoLaddersPersisted: ctx.opportunitiesRepo.listPaperCryptoLadders().length, topNearMisses }, 'Grouped market scan complete');
 }

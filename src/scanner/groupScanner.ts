@@ -15,7 +15,7 @@ export interface GroupDiagnostics {
   askDistanceToOne: number;
   bidDistanceToOne: number;
   failures: Array<{ marketId: string; question: string; reason: string }>;
-  memberPrices: Array<{ marketId: string; question: string; sortKey?: number; bestYesBid: number; bestYesAsk: number }>;
+  memberPrices: Array<{ marketId: string; question: string; sortKey?: number; bestYesBid: number; bestYesBidSize: number; bestYesAsk: number; bestYesAskSize: number }>;
   orderingViolations?: Array<{ earlierMarketId: string; laterMarketId: string; earlierAsk: number; laterAsk: number }>;
   nearMissScore: number;
   severityScore?: number;
@@ -40,16 +40,18 @@ export async function scanGroup(group: MarketGroup, ctx: AppContext): Promise<Gr
   let summedYesBid = 0;
   let usableMembers = 0;
   const failures: Array<{ marketId: string; question: string; reason: string }> = [];
-  const usable: Array<{ marketId: string; question: string; ask: number; bid: number; sortKey?: number }> = [];
+  const usable: Array<{ marketId: string; question: string; ask: number; askSize: number; bid: number; bidSize: number; sortKey?: number }> = [];
 
   for (const member of group.members) {
     try {
       const rawBook = await ctx.polymarketClient.getOrderBook(member.yesTokenId);
       const book = mapOrderBook(rawBook);
       const bestBid = book.yesBids[0]?.price;
+      const bestBidSize = book.yesBids[0]?.size;
       const bestAsk = book.yesAsks[0]?.price;
+      const bestAskSize = book.yesAsks[0]?.size;
 
-      if (bestBid === undefined || bestAsk === undefined) {
+      if (bestBid === undefined || bestAsk === undefined || bestBidSize === undefined || bestAskSize === undefined) {
         failures.push({ marketId: member.marketId, question: member.question, reason: 'missing yes best bid or ask' });
         continue;
       }
@@ -57,7 +59,7 @@ export async function scanGroup(group: MarketGroup, ctx: AppContext): Promise<Gr
       summedYesAsk += bestAsk;
       summedYesBid += bestBid;
       usableMembers += 1;
-      usable.push({ marketId: member.marketId, question: member.question, ask: bestAsk, bid: bestBid, sortKey: member.sortKey });
+      usable.push({ marketId: member.marketId, question: member.question, ask: bestAsk, askSize: bestAskSize, bid: bestBid, bidSize: bestBidSize, sortKey: member.sortKey });
     } catch {
       failures.push({ marketId: member.marketId, question: member.question, reason: 'orderbook fetch failed' });
     }
@@ -75,11 +77,12 @@ export async function scanGroup(group: MarketGroup, ctx: AppContext): Promise<Gr
     }
   }
 
-  const severityScore = orderingViolations.length > 0
-    ? orderingViolations.reduce((max, item) => Math.max(max, item.laterAsk - item.earlierAsk), 0)
-    : undefined;
+  const severityScore = orderingViolations.length > 0 ? orderingViolations.reduce((max, item) => Math.max(max, item.laterAsk - item.earlierAsk), 0) : undefined;
   const feasibilityReasons: string[] = [];
-  if ((usable[0]?.bid ?? 0) < ctx.env.MIN_GROUP_BID_LIQUIDITY) feasibilityReasons.push('top ladder bid liquidity too low');
+  const minBidSize = usable.length > 0 ? Math.min(...usable.map((item) => item.bidSize)) : 0;
+  const minAskSize = usable.length > 0 ? Math.min(...usable.map((item) => item.askSize)) : 0;
+  if (minBidSize < ctx.env.MIN_GROUP_BID_LIQUIDITY) feasibilityReasons.push('top ladder bid liquidity too low');
+  if (minAskSize < ctx.env.MAX_TRADE_SIZE_USD / 10) feasibilityReasons.push('top ladder ask liquidity too low for target sizing');
   if ((severityScore ?? 0) < ctx.env.MIN_GROUP_EDGE) feasibilityReasons.push('group edge below threshold');
   const feasible = feasibilityReasons.length === 0;
 
@@ -95,7 +98,7 @@ export async function scanGroup(group: MarketGroup, ctx: AppContext): Promise<Gr
     askDistanceToOne: summedYesAsk - 1,
     bidDistanceToOne: 1 - summedYesBid,
     failures,
-    memberPrices: usable.map((member) => ({ marketId: member.marketId, question: member.question, sortKey: member.sortKey, bestYesBid: member.bid, bestYesAsk: member.ask })),
+    memberPrices: usable.map((member) => ({ marketId: member.marketId, question: member.question, sortKey: member.sortKey, bestYesBid: member.bid, bestYesBidSize: member.bidSize, bestYesAsk: member.ask, bestYesAskSize: member.askSize })),
     orderingViolations,
     nearMissScore: calculateNearMissScore(group.category, summedYesAsk - 1, 1 - summedYesBid, orderingViolations.length, failures.length),
     severityScore,
