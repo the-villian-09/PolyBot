@@ -14,9 +14,9 @@ function isTrumpMarket(market: Market): boolean {
 }
 
 function isCryptoMarket(market: Market): boolean {
-  return /bitcoin|btc|ethereum|eth|solana|fdv|market cap|airdrop|launch|megaeth/i.test(market.question)
-    || /bitcoin|btc|ethereum|eth|solana|fdv|market cap|airdrop|launch|megaeth/i.test(market.eventTitle ?? '')
-    || /bitcoin|btc|ethereum|eth|solana|fdv|market cap|airdrop|launch|megaeth/i.test(market.groupTitle ?? '');
+  return /bitcoin|btc|ethereum|eth|solana|fdv|market cap|airdrop|launch|megaeth|price above|price over|price reaches|fully diluted/i.test(market.question)
+    || /bitcoin|btc|ethereum|eth|solana|fdv|market cap|airdrop|launch|megaeth|fully diluted/i.test(market.eventTitle ?? '')
+    || /bitcoin|btc|ethereum|eth|solana|fdv|market cap|airdrop|launch|megaeth|fully diluted/i.test(market.groupTitle ?? '');
 }
 
 function normalizeTimeframeStem(question: string): { stem: string; sortKey: number } | null {
@@ -27,16 +27,20 @@ function normalizeTimeframeStem(question: string): { stem: string; sortKey: numb
   const monthIndex = monthOrder.indexOf(match[2].toLowerCase());
   if (monthIndex === -1) return null;
 
-  return {
-    stem: match[1].trim().toLowerCase(),
-    sortKey: Number(match[3]) * 100 + monthIndex
-  };
+  return { stem: match[1].trim().toLowerCase(), sortKey: Number(match[3]) * 100 + monthIndex };
 }
 
 function parseThresholdSortKey(question: string): number | null {
-  const match = question.match(/>\$(\d+(?:\.\d+)?)B/i);
-  if (!match) return null;
-  return Number(match[1]);
+  const billionMatch = question.match(/(?:>|above|over)\s*\$?(\d+(?:\.\d+)?)\s*B/i);
+  if (billionMatch) return Number(billionMatch[1]) * 1_000_000_000;
+
+  const millionMatch = question.match(/(?:>|above|over)\s*\$?(\d+(?:\.\d+)?)\s*M/i);
+  if (millionMatch) return Number(millionMatch[1]) * 1_000_000;
+
+  const plainDollarMatch = question.match(/(?:>|above|over|reaches)\s*\$?(\d+(?:\.\d+)?)(?!\s*[BM])/i);
+  if (plainDollarMatch) return Number(plainDollarMatch[1]);
+
+  return null;
 }
 
 function buildChampionGroups(markets: Market[]): MarketGroup[] {
@@ -105,7 +109,7 @@ function buildCryptoThresholdGroups(markets: Market[]): MarketGroup[] {
     const noToken = market.outcomes[1];
     if (sortKey === null || !yesToken || !noToken) continue;
 
-    const title = market.eventTitle || 'crypto-threshold-family';
+    const title = market.eventTitle || market.groupTitle || 'crypto-threshold-family';
     const groupKey = `crypto-threshold-family:${title}`;
     const existing = byEvent.get(groupKey) ?? { groupKey, category: 'crypto-threshold-family' as const, title, members: [] };
     existing.members.push({ marketId: market.id, question: market.question, yesTokenId: yesToken.tokenId, noTokenId: noToken.tokenId, liquidityUsd: market.liquidityUsd, volume24h: market.volume24h, sortKey });

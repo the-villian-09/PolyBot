@@ -19,6 +19,7 @@ What to support:
 - nested implication checks
 - multi-threshold ladder consistency
 - severity ranking by inversion size
+- broader threshold parsing for dollar, million, and billion style contracts
 
 Examples:
 - FDV or market cap after launch
@@ -98,5 +99,6 @@ Do not spend the next cycle on:
 1. deepen crypto ladder logic
 2. add ladder-specific ranking and persistence
 3. add execution-feasibility checks
-4. add tech ladder support
-5. then add politics dependency logic
+4. broaden crypto ladder parsing and family coverage
+5. add tech ladder support
+6. then add politics dependency logic
