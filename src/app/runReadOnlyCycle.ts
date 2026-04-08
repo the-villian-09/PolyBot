@@ -24,12 +24,16 @@ export async function runReadOnlyCycle(ctx: AppContext): Promise<void> {
   ctx.marketStore.bulkUpsert(markets);
   ctx.logger.info({ count: markets.length }, 'Fetched active markets');
 
+  let cycleDetected = 0;
+  let cycleMissed = 0;
+
   for (const market of markets) {
     try {
       const yesToken = market.outcomes.find((outcome) => outcome.outcome === 'YES') ?? market.outcomes[0];
       const noToken = market.outcomes.find((outcome) => outcome.outcome === 'NO') ?? market.outcomes[1];
 
       if (!yesToken || !noToken) {
+        cycleMissed += 1;
         ctx.opportunitiesRepo.recordMissed({
           marketId: market.id,
           edge: 0,
@@ -52,6 +56,7 @@ export async function runReadOnlyCycle(ctx: AppContext): Promise<void> {
 
       const opportunity = scanOrderBook(mergedBook, ctx.env);
       if (!opportunity) {
+        cycleMissed += 1;
         ctx.opportunitiesRepo.recordMissed({
           marketId: market.id,
           edge: 0,
@@ -63,6 +68,7 @@ export async function runReadOnlyCycle(ctx: AppContext): Promise<void> {
 
       const validation = validateOpportunity(opportunity, ctx.env);
       if (!validation.valid) {
+        cycleMissed += 1;
         ctx.opportunitiesRepo.recordMissed({
           marketId: market.id,
           edge: opportunity.edge,
@@ -73,10 +79,14 @@ export async function runReadOnlyCycle(ctx: AppContext): Promise<void> {
         continue;
       }
 
+      cycleDetected += 1;
       ctx.opportunitiesRepo.recordOpportunity(opportunity);
       ctx.logger.info({ marketId: market.id, edge: opportunity.edge, tradeSize: opportunity.suggestedTradeSize }, 'Opportunity detected');
     } catch (error) {
+      cycleMissed += 1;
       ctx.logger.error({ err: error, marketId: market.id }, 'Read-only cycle failed for market');
     }
   }
+
+  ctx.logger.info({ cycleDetected, cycleMissed }, 'Read-only scan summary');
 }

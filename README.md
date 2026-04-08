@@ -12,7 +12,8 @@ The repository currently includes:
 - market and orderbook stores
 - scanner and validation logic
 - Polymarket read-only client scaffold
-- read-only cycle for markets, books, and opportunity logging
+- dry-run scan loop
+- file-based JSONL persistence for detected and missed opportunities
 - Polymarket integration checklist docs
 
 ## Commands
@@ -24,6 +25,13 @@ npm run dev
 npm test
 ```
 
+## Modes
+
+- `dry-run` , continuous scan loop, no trading
+- `paper` , single read-only scan cycle for now
+- `live-small` , not implemented yet
+- `live` , not implemented yet
+
 ## Safety
 
-Default mode should remain `paper` until integration, reconciliation, and execution paths are validated.
+Default mode should remain `paper` or `dry-run` until integration, reconciliation, and execution paths are validated.

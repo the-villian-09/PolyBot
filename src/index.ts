@@ -1,5 +1,6 @@
 import { bootstrap } from './app/bootstrap';
 import { runReadOnlyCycle } from './app/runReadOnlyCycle';
+import { runLoop } from './app/runLoop';
 
 async function main() {
   const ctx = bootstrap();
@@ -16,16 +17,24 @@ async function main() {
     'PolyEdge Lite started'
   );
 
-  if (env.APP_MODE === 'dry-run' || env.APP_MODE === 'paper') {
+  if (env.APP_MODE === 'dry-run') {
+    await runLoop(ctx);
+    return;
+  }
+
+  if (env.APP_MODE === 'paper') {
     await runReadOnlyCycle(ctx);
     logger.info(
       {
         detected: ctx.opportunitiesRepo.listDetected().length,
         missed: ctx.opportunitiesRepo.listMissed().length
       },
-      'Read-only cycle complete'
+      'Paper read-only cycle complete'
     );
+    return;
   }
+
+  logger.warn({ mode: env.APP_MODE }, 'Live execution modes are not implemented yet');
 }
 
 main().catch((error) => {
