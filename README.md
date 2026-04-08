@@ -19,6 +19,8 @@ The repository currently includes:
 - grouped market scaffolding for champion-market, exclusive-outcome-market, timeframe-market, trump-family, crypto-family, and crypto-threshold-family scans
 - Polymarket integration checklist docs
 - revised strategy spec
+- concrete family expansion plan
+- concrete implementation roadmap
 
 ## Commands
 
