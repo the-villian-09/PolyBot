@@ -21,6 +21,10 @@ export interface RawPolymarketMarket {
   outcomes?: { tokenId: string; outcome: string }[];
 }
 
+export interface RawGammaEvent {
+  title?: string;
+}
+
 export interface RawGammaMarket {
   id: string;
   question?: string;
@@ -33,6 +37,9 @@ export interface RawGammaMarket {
   liquidityNum?: number;
   volume24hr?: number;
   acceptingOrders?: boolean;
+  groupItemTitle?: string;
+  slug?: string;
+  events?: RawGammaEvent[];
   clobTokenIds?: string;
   outcomes?: string;
 }

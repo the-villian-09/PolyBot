@@ -12,5 +12,8 @@ export interface Market {
   liquidityUsd?: number;
   volume24h?: number;
   acceptingOrders?: boolean;
+  groupTitle?: string;
+  eventTitle?: string;
+  slug?: string;
   outcomes: OutcomeToken[];
 }

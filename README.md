@@ -1,6 +1,6 @@
 # PolyBot
 
-PolyBot is a lean MVP Polymarket arbitrage bot focused on clean execution, good filtering, and stability.
+PolyBot is a lean MVP Polymarket bot focused on clean execution, grouped market logic, good filtering, and stability.
 
 ## Current status
 
@@ -16,7 +16,9 @@ The repository currently includes:
 - dry-run scan loop
 - file-based JSONL persistence for detected and missed opportunities
 - skip-reason logging for dry-run diagnostics
+- grouped market scaffolding for champion-market scans
 - Polymarket integration checklist docs
+- revised strategy spec
 
 ## Commands
 
@@ -36,4 +38,4 @@ npm test
 
 ## Safety
 
-Default mode should remain `paper` or `dry-run` until integration, reconciliation, and execution paths are validated.
+Default mode should remain `paper` or `dry-run` until grouped opportunity logic, reconciliation, and execution paths are validated.

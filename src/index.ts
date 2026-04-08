@@ -1,6 +1,7 @@
 import { bootstrap } from './app/bootstrap';
 import { runReadOnlyCycle } from './app/runReadOnlyCycle';
 import { runLoop } from './app/runLoop';
+import { runGroupedReadOnlyCycle } from './app/runGroupedReadOnlyCycle';
 
 async function main() {
   const ctx = bootstrap();
@@ -16,6 +17,8 @@ async function main() {
     },
     'PolyEdge Lite started'
   );
+
+  await runGroupedReadOnlyCycle(ctx);
 
   if (env.APP_MODE === 'dry-run') {
     await runLoop(ctx);
