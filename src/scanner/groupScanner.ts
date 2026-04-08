@@ -8,7 +8,7 @@ export interface GroupScanResult {
   diagnostics: {
     groupKey: string;
     title: string;
-    category: 'champion-market' | 'timeframe-market';
+    category: 'champion-market' | 'timeframe-market' | 'exclusive-outcome-market';
     memberCount: number;
     usableMembers: number;
     failedMembers: number;
@@ -102,7 +102,7 @@ export async function scanGroup(group: MarketGroup, ctx: AppContext): Promise<Gr
     };
   }
 
-  if (group.category === 'champion-market' && (summedYesAsk <= 1 || summedYesBid >= 1)) {
+  if ((group.category === 'champion-market' || group.category === 'exclusive-outcome-market') && (summedYesAsk <= 1 || summedYesBid >= 1)) {
     return {
       diagnostics,
       opportunity: {

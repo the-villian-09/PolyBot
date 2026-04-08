@@ -10,7 +10,7 @@ export interface MarketGroupMember {
 
 export interface MarketGroup {
   groupKey: string;
-  category: 'champion-market' | 'timeframe-market';
+  category: 'champion-market' | 'timeframe-market' | 'exclusive-outcome-market';
   title: string;
   members: MarketGroupMember[];
 }

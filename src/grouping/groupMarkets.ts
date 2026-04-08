@@ -5,6 +5,10 @@ function isChampionMarket(market: Market): boolean {
   return /win the 2026 nhl stanley cup/i.test(market.question) || /stanley cup champion/i.test(market.eventTitle ?? '');
 }
 
+function isExclusiveOutcomeEvent(title: string): boolean {
+  return /winner|nominee|champion|rookie of the year/i.test(title);
+}
+
 function normalizeTimeframeStem(question: string): { stem: string; sortKey: number } | null {
   const match = question.match(/^(.*) before ([a-z]+) (\d{4})\?$/i);
   if (!match) return null;
@@ -33,6 +37,40 @@ function buildChampionGroups(markets: Market[]): MarketGroup[] {
       groupKey,
       category: 'champion-market' as const,
       title: market.eventTitle ?? 'Unknown champion market group',
+      members: []
+    };
+
+    existing.members.push({
+      marketId: market.id,
+      question: market.question,
+      yesTokenId: yesToken.tokenId,
+      noTokenId: noToken.tokenId,
+      liquidityUsd: market.liquidityUsd,
+      volume24h: market.volume24h
+    });
+
+    byEvent.set(groupKey, existing);
+  }
+
+  return [...byEvent.values()].filter((group) => group.members.length >= 2);
+}
+
+function buildExclusiveOutcomeGroups(markets: Market[]): MarketGroup[] {
+  const byEvent = new Map<string, MarketGroup>();
+
+  for (const market of markets) {
+    const eventTitle = market.eventTitle ?? '';
+    if (!isExclusiveOutcomeEvent(eventTitle)) continue;
+
+    const yesToken = market.outcomes[0];
+    const noToken = market.outcomes[1];
+    if (!yesToken || !noToken) continue;
+
+    const groupKey = `exclusive-outcome-market:${eventTitle}`;
+    const existing = byEvent.get(groupKey) ?? {
+      groupKey,
+      category: 'exclusive-outcome-market' as const,
+      title: eventTitle,
       members: []
     };
 
@@ -89,6 +127,7 @@ function buildTimeframeGroups(markets: Market[]): MarketGroup[] {
 export function groupMarkets(markets: Market[]): MarketGroup[] {
   return [
     ...buildChampionGroups(markets),
+    ...buildExclusiveOutcomeGroups(markets),
     ...buildTimeframeGroups(markets)
   ];
 }
