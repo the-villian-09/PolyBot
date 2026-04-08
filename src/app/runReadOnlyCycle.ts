@@ -20,19 +20,20 @@ function byLiquidityDescending(a: Market, b: Market): number {
   return (b.liquidityUsd ?? 0) - (a.liquidityUsd ?? 0);
 }
 
-async function processMarket(ctx: AppContext, market: Market): Promise<{ detected: number; missed: number }> {
+async function processMarket(ctx: AppContext, market: Market): Promise<{ detected: number; missed: number; reasons: string[] }> {
   try {
     const yesToken = market.outcomes[0];
     const noToken = market.outcomes[1];
 
     if (!yesToken || !noToken) {
+      const reason = 'missing outcome tokens';
       ctx.opportunitiesRepo.recordMissed({
         marketId: market.id,
         edge: 0,
-        reasonSkipped: 'missing outcome tokens',
+        reasonSkipped: reason,
         timestamp: Date.now()
       });
-      return { detected: 0, missed: 1 };
+      return { detected: 0, missed: 1, reasons: [reason] };
     }
 
     const [rawYesBook, rawNoBook] = await Promise.all([
@@ -48,35 +49,37 @@ async function processMarket(ctx: AppContext, market: Market): Promise<{ detecte
 
     ctx.orderBookStore.upsert(mergedBook);
 
-    const opportunity = scanOrderBook(mergedBook, ctx.env);
-    if (!opportunity) {
+    const scan = scanOrderBook(mergedBook, ctx.env);
+    if (!scan.opportunity) {
+      const reason = scan.skipReasons.join(', ');
       ctx.opportunitiesRepo.recordMissed({
         marketId: market.id,
         edge: 0,
-        reasonSkipped: 'no candidate opportunity',
+        reasonSkipped: reason,
         timestamp: Date.now()
       });
-      return { detected: 0, missed: 1 };
+      return { detected: 0, missed: 1, reasons: scan.skipReasons };
     }
 
-    const validation = validateOpportunity(opportunity, ctx.env);
+    const validation = validateOpportunity(scan.opportunity, ctx.env);
     if (!validation.valid) {
       ctx.opportunitiesRepo.recordMissed({
         marketId: market.id,
-        edge: opportunity.edge,
+        edge: scan.opportunity.edge,
         reasonSkipped: validation.reasons.join(', '),
         timestamp: Date.now()
       });
       ctx.logger.debug({ marketId: market.id, reasons: validation.reasons }, 'Opportunity skipped');
-      return { detected: 0, missed: 1 };
+      return { detected: 0, missed: 1, reasons: validation.reasons };
     }
 
-    ctx.opportunitiesRepo.recordOpportunity(opportunity);
-    ctx.logger.info({ marketId: market.id, edge: opportunity.edge, tradeSize: opportunity.suggestedTradeSize }, 'Opportunity detected');
-    return { detected: 1, missed: 0 };
+    ctx.opportunitiesRepo.recordOpportunity(scan.opportunity);
+    ctx.logger.info({ marketId: market.id, edge: scan.opportunity.edge, tradeSize: scan.opportunity.suggestedTradeSize }, 'Opportunity detected');
+    return { detected: 1, missed: 0, reasons: [] };
   } catch (error) {
+    const reason = 'market processing error';
     ctx.logger.error({ err: error, marketId: market.id }, 'Read-only cycle failed for market');
-    return { detected: 0, missed: 1 };
+    return { detected: 0, missed: 1, reasons: [reason] };
   }
 }
 
@@ -96,6 +99,7 @@ export async function runReadOnlyCycle(ctx: AppContext): Promise<void> {
 
   let cycleDetected = 0;
   let cycleMissed = 0;
+  const reasonCounts = new Map<string, number>();
 
   for (let index = 0; index < markets.length; index += ctx.env.BOOK_FETCH_CONCURRENCY) {
     const batch = markets.slice(index, index + ctx.env.BOOK_FETCH_CONCURRENCY);
@@ -104,8 +108,11 @@ export async function runReadOnlyCycle(ctx: AppContext): Promise<void> {
     for (const result of results) {
       cycleDetected += result.detected;
       cycleMissed += result.missed;
+      for (const reason of result.reasons) {
+        reasonCounts.set(reason, (reasonCounts.get(reason) ?? 0) + 1);
+      }
     }
   }
 
-  ctx.logger.info({ cycleDetected, cycleMissed }, 'Read-only scan summary');
+  ctx.logger.info({ cycleDetected, cycleMissed, skipReasonCounts: Object.fromEntries(reasonCounts) }, 'Read-only scan summary');
 }

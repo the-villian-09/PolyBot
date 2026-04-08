@@ -11,9 +11,11 @@ The repository currently includes:
 - core domain types
 - market and orderbook stores
 - scanner and validation logic
-- Polymarket read-only client scaffold
+- Gamma-backed market discovery
+- CLOB orderbook reads
 - dry-run scan loop
 - file-based JSONL persistence for detected and missed opportunities
+- skip-reason logging for dry-run diagnostics
 - Polymarket integration checklist docs
 
 ## Commands
