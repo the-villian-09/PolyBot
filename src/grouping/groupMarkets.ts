@@ -9,6 +9,16 @@ function isExclusiveOutcomeEvent(title: string): boolean {
   return /winner|nominee|champion|rookie of the year/i.test(title);
 }
 
+function isTrumpMarket(market: Market): boolean {
+  return /trump/i.test(market.question) || /trump/i.test(market.eventTitle ?? '') || /trump/i.test(market.groupTitle ?? '');
+}
+
+function isCryptoMarket(market: Market): boolean {
+  return /bitcoin|btc|ethereum|eth|solana|fdv|market cap|airdrop|launch|megaeth/i.test(market.question)
+    || /bitcoin|btc|ethereum|eth|solana|fdv|market cap|airdrop|launch|megaeth/i.test(market.eventTitle ?? '')
+    || /bitcoin|btc|ethereum|eth|solana|fdv|market cap|airdrop|launch|megaeth/i.test(market.groupTitle ?? '');
+}
+
 function normalizeTimeframeStem(question: string): { stem: string; sortKey: number } | null {
   const match = question.match(/^(.*) before ([a-z]+) (\d{4})\?$/i);
   if (!match) return null;
@@ -40,15 +50,7 @@ function buildChampionGroups(markets: Market[]): MarketGroup[] {
       members: []
     };
 
-    existing.members.push({
-      marketId: market.id,
-      question: market.question,
-      yesTokenId: yesToken.tokenId,
-      noTokenId: noToken.tokenId,
-      liquidityUsd: market.liquidityUsd,
-      volume24h: market.volume24h
-    });
-
+    existing.members.push({ marketId: market.id, question: market.question, yesTokenId: yesToken.tokenId, noTokenId: noToken.tokenId, liquidityUsd: market.liquidityUsd, volume24h: market.volume24h });
     byEvent.set(groupKey, existing);
   }
 
@@ -74,15 +76,32 @@ function buildExclusiveOutcomeGroups(markets: Market[]): MarketGroup[] {
       members: []
     };
 
-    existing.members.push({
-      marketId: market.id,
-      question: market.question,
-      yesTokenId: yesToken.tokenId,
-      noTokenId: noToken.tokenId,
-      liquidityUsd: market.liquidityUsd,
-      volume24h: market.volume24h
-    });
+    existing.members.push({ marketId: market.id, question: market.question, yesTokenId: yesToken.tokenId, noTokenId: noToken.tokenId, liquidityUsd: market.liquidityUsd, volume24h: market.volume24h });
+    byEvent.set(groupKey, existing);
+  }
 
+  return [...byEvent.values()].filter((group) => group.members.length >= 2);
+}
+
+function buildThematicGroups(markets: Market[], predicate: (market: Market) => boolean, prefix: 'trump-family' | 'crypto-family'): MarketGroup[] {
+  const themed = markets.filter(predicate);
+  const byEvent = new Map<string, MarketGroup>();
+
+  for (const market of themed) {
+    const yesToken = market.outcomes[0];
+    const noToken = market.outcomes[1];
+    if (!yesToken || !noToken) continue;
+
+    const title = market.eventTitle || market.groupTitle || prefix;
+    const groupKey = `${prefix}:${title}`;
+    const existing = byEvent.get(groupKey) ?? {
+      groupKey,
+      category: prefix,
+      title,
+      members: []
+    };
+
+    existing.members.push({ marketId: market.id, question: market.question, yesTokenId: yesToken.tokenId, noTokenId: noToken.tokenId, liquidityUsd: market.liquidityUsd, volume24h: market.volume24h });
     byEvent.set(groupKey, existing);
   }
 
@@ -106,28 +125,19 @@ function buildTimeframeGroups(markets: Market[]): MarketGroup[] {
       members: []
     };
 
-    existing.members.push({
-      marketId: market.id,
-      question: market.question,
-      yesTokenId: yesToken.tokenId,
-      noTokenId: noToken.tokenId,
-      liquidityUsd: market.liquidityUsd,
-      volume24h: market.volume24h,
-      sortKey: parsed.sortKey
-    });
-
+    existing.members.push({ marketId: market.id, question: market.question, yesTokenId: yesToken.tokenId, noTokenId: noToken.tokenId, liquidityUsd: market.liquidityUsd, volume24h: market.volume24h, sortKey: parsed.sortKey });
     byStem.set(groupKey, existing);
   }
 
-  return [...byStem.values()]
-    .map((group) => ({ ...group, members: [...group.members].sort((a, b) => (a.sortKey ?? 0) - (b.sortKey ?? 0)) }))
-    .filter((group) => group.members.length >= 2);
+  return [...byStem.values()].map((group) => ({ ...group, members: [...group.members].sort((a, b) => (a.sortKey ?? 0) - (b.sortKey ?? 0)) })).filter((group) => group.members.length >= 2);
 }
 
 export function groupMarkets(markets: Market[]): MarketGroup[] {
   return [
     ...buildChampionGroups(markets),
     ...buildExclusiveOutcomeGroups(markets),
+    ...buildThematicGroups(markets, isTrumpMarket, 'trump-family'),
+    ...buildThematicGroups(markets, isCryptoMarket, 'crypto-family'),
     ...buildTimeframeGroups(markets)
   ];
 }

@@ -6,7 +6,7 @@ import type { AppContext } from '../app/bootstrap';
 export interface GroupDiagnostics {
   groupKey: string;
   title: string;
-  category: 'champion-market' | 'timeframe-market' | 'exclusive-outcome-market';
+  category: 'champion-market' | 'timeframe-market' | 'exclusive-outcome-market' | 'trump-family' | 'crypto-family';
   memberCount: number;
   usableMembers: number;
   failedMembers: number;
@@ -67,12 +67,7 @@ export async function scanGroup(group: MarketGroup, ctx: AppContext): Promise<Gr
       const earlier = sorted[i];
       const later = sorted[i + 1];
       if (earlier && later && earlier.ask > later.ask) {
-        orderingViolations.push({
-          earlierMarketId: earlier.marketId,
-          laterMarketId: later.marketId,
-          earlierAsk: earlier.ask,
-          laterAsk: later.ask
-        });
+        orderingViolations.push({ earlierMarketId: earlier.marketId, laterMarketId: later.marketId, earlierAsk: earlier.ask, laterAsk: later.ask });
       }
     }
   }
@@ -114,7 +109,7 @@ export async function scanGroup(group: MarketGroup, ctx: AppContext): Promise<Gr
     };
   }
 
-  if ((group.category === 'champion-market' || group.category === 'exclusive-outcome-market') && (summedYesAsk <= 1 || summedYesBid >= 1)) {
+  if ((group.category === 'champion-market' || group.category === 'exclusive-outcome-market' || group.category === 'trump-family' || group.category === 'crypto-family') && (summedYesAsk <= 1 || summedYesBid >= 1)) {
     return {
       diagnostics,
       opportunity: {
